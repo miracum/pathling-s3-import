@@ -9,3 +9,19 @@ services:
     ports:
       - "127.0.0.1:9000:9000"
       - "127.0.0.1:9001:9001"
+
+  pathling:
+    image: docker.io/aehrc/pathling:6.4.2@sha256:9b8ee32d4b8bb40192d6bf25814492a616153a0df15d178c286db9ec80c1c85e
+    environment:
+      pathling.storage.warehouseUrl: s3://fhir
+      pathling.import.allowableSources: s3://fhir/staging
+      pathling.terminology.enabled: false
+      pathling.terminology.serverUrl: http://localhost:8080/i-dont-exist
+      fs.s3a.endpoint: "http://minio:9000"
+      fs.s3a.aws.credentials.provider: "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+      fs.s3a.access.key: "admin"
+      fs.s3a.secret.key: "miniopass"
+      fs.s3a.impl: "org.apache.hadoop.fs.s3a.S3AFileSystem"
+      fs.s3a.path.style.access: "true"
+    ports:
+      - "127.0.0.1:8082:8080"
