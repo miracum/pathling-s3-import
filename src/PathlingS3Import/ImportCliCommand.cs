@@ -204,7 +204,7 @@ public class ImportCliCommand
 
                     if (!IsDryRun)
                     {
-                        stopwatch.Reset();
+                        stopwatch.Restart();
                         var response = await retryPipeline.ExecuteAsync(async token =>
                         {
                             return await fhirClient.WholeSystemOperationAsync(
