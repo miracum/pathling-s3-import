@@ -1,0 +1,78 @@
+{
+  "plugins": [
+    [
+      "@semantic-release/commit-analyzer",
+      {
+        "preset": "conventionalcommits",
+        "releaseRules": [
+          {
+            "type": "chore",
+            "scope": "deps",
+            "release": "patch"
+          },
+          {
+            "type": "build",
+            "release": "patch"
+          }
+        ]
+      }
+    ],
+    [
+      "@semantic-release/release-notes-generator",
+      {
+        "preset": "conventionalcommits",
+        "presetConfig": {
+          "types": [
+            { "type": "feat", "section": "Features" },
+            { "type": "fix", "section": "Bug Fixes" },
+            { "type": "perf", "section": "Performance Improvements" },
+            { "type": "docs", "section": "Documentation", "hidden": false },
+            {
+              "type": "chore",
+              "section": "Miscellaneous Chores",
+              "hidden": false
+            },
+            { "type": "build", "section": "Build", "hidden": false },
+            { "type": "ci", "section": "CI/CD", "hidden": false }
+          ]
+        }
+      }
+    ],
+    "@semantic-release/github",
+    [
+      "semantic-release-replace-plugin",
+      {
+        "replacements": [
+          {
+            "files": ["README.md"],
+            "from": "ghcr.io/miracum/pathling-s3-import:v.*",
+            "to": "ghcr.io/miracum/pathling-s3-import:v${nextRelease.version}",
+            "results": [
+              {
+                "file": "README.md",
+                "hasChanged": true
+              }
+            ]
+          },
+          {
+            "files": ["Dockerfile"],
+            "from": "ARG VERSION=.*",
+            "to": "ARG VERSION=${nextRelease.version}",
+            "results": [
+              {
+                "file": "Dockerfile",
+                "hasChanged": true
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": ["README.md", "Dockerfile"]
+      }
+    ]
+  ]
+}
