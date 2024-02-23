@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": ".NET Core Launch (console)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/PathlingS3Import/bin/Debug/net8.0/PathlingS3Import.dll",
+      "args": [
+        "--s3-endpoint=http://localhost:9000",
+        "--pathling-server-base-url=http://localhost:8082/fhir",
+        "--s3-access-key=admin",
+        "--s3-secret-key=miniopass",
+        "--s3-bucket-name=fhir",
+        "--s3-object-name-prefix=staging/"
+      ],
+      "env": {},
+      "cwd": "${workspaceFolder}/src/PathlingS3Import",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
+      "name": ".NET Core Attach",
+      "type": "coreclr",
+      "request": "attach"
+    }
+  ]
+}
