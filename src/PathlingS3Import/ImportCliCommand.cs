@@ -22,7 +22,7 @@ public class ImportCliCommand
 
     public ImportCliCommand()
     {
-        using ILoggerFactory loggerFactory = LoggerFactory.Create(builder =>
+        using var loggerFactory = LoggerFactory.Create(builder =>
             builder.AddSimpleConsole(options =>
             {
                 options.IncludeScopes = true;
@@ -69,11 +69,6 @@ public class ImportCliCommand
 
     public void Run()
     {
-        DoAsync().Wait();
-    }
-
-    private async Task DoAsync()
-    {
         var retryOptions = new RetryStrategyOptions
         {
             ShouldHandle = new PredicateBuilder().Handle<Exception>(),
@@ -114,6 +109,15 @@ public class ImportCliCommand
             .WithCredentials(S3AccessKey, S3SecretKey)
             .Build();
 
+        DoAsync(minio, fhirClient, retryPipeline).Wait();
+    }
+
+    private async Task DoAsync(
+        IMinioClient minio,
+        FhirClient fhirClient,
+        ResiliencePipeline retryPipeline
+    )
+    {
         var bucketExistsArgs = new BucketExistsArgs().WithBucket(S3BucketName);
         bool found = await minio.BucketExistsAsync(bucketExistsArgs);
         if (!found)
@@ -123,7 +127,12 @@ public class ImportCliCommand
 
         var prefix = $"{S3ObjectNamePrefix}{ImportResourceType}/";
 
-        log.LogInformation("Listing objects in {S3BucketName}/{Prefix}.", S3BucketName, prefix);
+        log.LogInformation(
+            "Listing objects in {S3BaseUrl}/{S3BucketName}/{Prefix}.",
+            minio.Config.BaseUrl,
+            S3BucketName,
+            prefix
+        );
 
         var listArgs = new ListObjectsArgs()
             .WithBucket(S3BucketName)
