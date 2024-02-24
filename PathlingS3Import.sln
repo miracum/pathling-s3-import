@@ -7,6 +7,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{7C72D930-9EE
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PathlingS3Import", "src\PathlingS3Import\PathlingS3Import.csproj", "{1B97F255-F56D-4AE5-A25A-2C9C2AFEBFAB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PathlingS3Import.Tests.E2E", "src\PathlingS3Import.Tests.E2E\PathlingS3Import.Tests.E2E.csproj", "{91793B35-10E1-49D7-9D97-D69B6C083BEA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,8 +22,13 @@ Global
 		{1B97F255-F56D-4AE5-A25A-2C9C2AFEBFAB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1B97F255-F56D-4AE5-A25A-2C9C2AFEBFAB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1B97F255-F56D-4AE5-A25A-2C9C2AFEBFAB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{91793B35-10E1-49D7-9D97-D69B6C083BEA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{91793B35-10E1-49D7-9D97-D69B6C083BEA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{91793B35-10E1-49D7-9D97-D69B6C083BEA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{91793B35-10E1-49D7-9D97-D69B6C083BEA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{1B97F255-F56D-4AE5-A25A-2C9C2AFEBFAB} = {7C72D930-9EE6-4CA3-8F01-40429262EE29}
+		{91793B35-10E1-49D7-9D97-D69B6C083BEA} = {7C72D930-9EE6-4CA3-8F01-40429262EE29}
 	EndGlobalSection
 EndGlobal

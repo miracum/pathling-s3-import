@@ -26,6 +26,48 @@ jobs:
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
 
+  test:
+    needs:
+      - build
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Download container image
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/download-artifact@eaceaf801fd36c7dee90939fad912460b18a1ffe # v4.1.2
+        with:
+          name: ${{ needs.build.outputs.image-slug }}
+          path: /tmp
+
+      - name: Load image
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          ls -lar /tmp
+          docker load --input /tmp/image.tar
+          docker image ls -a
+
+      - name: Start compose fixtures
+        run: |
+          docker compose up wait-for-pathling
+
+      - name: Install .NET
+        uses: actions/setup-dotnet@4d6c8fcf3c8f7a60068d26b594648e99df24cee3 # v4.0.0
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Run tests
+        env:
+          PATHLING_S3_IMPORT_IMAGE_TAG: ${{ needs.build.outputs.image-version }}
+        run: dotnet test src/PathlingS3Import.Tests.E2E --configuration=Release -l "console;verbosity=detailed"
+
+      - name: Print compose logs
+        if: always()
+        run: |
+          docker compose logs
+          docker compose down --volumes --remove-orphans
+
   lint:
     uses: miracum/.github/.github/workflows/standard-lint.yaml@d09a237ae62959d3cf89d526a035fbd9d9d816ee # v1.5.8
     permissions:
