@@ -1,4 +1,3 @@
-using DotNet.Testcontainers;
 using DotNet.Testcontainers.Builders;
 using FluentAssertions;
 using Hl7.Fhir.Model;
@@ -8,14 +7,9 @@ using Task = System.Threading.Tasks.Task;
 
 namespace PathlingS3Import.Tests.E2E;
 
-public class Tests
+public class Tests(ITestOutputHelper output)
 {
-    private readonly ITestOutputHelper output;
-
-    public Tests(ITestOutputHelper output)
-    {
-        this.output = output;
-    }
+    private readonly ITestOutputHelper output = output;
 
     [Fact]
     public async Task StartImportTool_WithRunningPathlingServerAndMinio_ShouldCreateExpectedNumberOfResources()
@@ -23,12 +17,9 @@ public class Tests
         // this test requires the dev fixtures to be running on their default ports as well as
         // a PathlingS3Import image to exist.
 
-        using var stdoutStream =  new MemoryStream();
-        using var stderrStream =  new MemoryStream();
-        using var consumer = Consume.RedirectStdoutAndStderrToStream(
-            stdoutStream,
-            stderrStream
-        );
+        using var stdoutStream = new MemoryStream();
+        using var stderrStream = new MemoryStream();
+        using var consumer = Consume.RedirectStdoutAndStderrToStream(stdoutStream, stderrStream);
 
         var pathlingServerBaseUrl = "http://host.docker.internal:8082/fhir";
         var resourceType = ResourceType.Patient;

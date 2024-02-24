@@ -1,5 +1,8 @@
 # pathling-s3-import
 
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/miracum/pathling-s3-import/badge)](https://api.securityscorecards.dev/projects/github.com/miracum/pathling-s3-import)
+[![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
+
 Tool for automatically [$import'ing](https://pathling.csiro.au/docs/server/operations/import) lists of ndjson FHIR resources from an S3-compatible bucket into a Pathling server.
 
 ## Usage
