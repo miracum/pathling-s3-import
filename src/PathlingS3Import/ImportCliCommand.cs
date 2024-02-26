@@ -67,6 +67,12 @@ public class ImportCliCommand
     )]
     public bool IsDryRun { get; set; } = false;
 
+    [CliOption(
+        Description = "If enabled, continue processing resources from the last saved checkpoint file.",
+        Name = "--continue-from-last-checkpoint"
+    )]
+    public bool IsContinueFromLastCheckpointEnabled { get; set; } = false;
+
     public void Run()
     {
         var retryOptions = new RetryStrategyOptions
@@ -181,6 +187,7 @@ public class ImportCliCommand
         log.LogInformation("Found a total of {ObjectCount} matching objects.", allObjects.Count);
 
         var allObjectsSorted = allObjects.OrderBy(o => o.Key);
+        var objectsToProcess = allObjectsSorted;
 
         var currentProgressObjectName = $"{prefix}pathling-s3-importer-last-imported.txt";
 
@@ -189,10 +196,33 @@ public class ImportCliCommand
             currentProgressObjectName
         );
 
+        if (IsContinueFromLastCheckpointEnabled)
+        {
+            using var memoryStream = new MemoryStream();
+            // read the contents of the last checkpoint file
+            var getArgs = new GetObjectArgs()
+                .WithBucket(S3BucketName)
+                .WithObject(currentProgressObjectName)
+                .WithCallbackStream(
+                    (stream) =>
+                    {
+                        stream.CopyTo(memoryStream);
+                    }
+                );
+            await minio.GetObjectAsync(getArgs);
+            using var reader = new StreamReader(memoryStream, Encoding.UTF8);
+            var lastProcessedFile = reader.ReadToEnd();
+            // order again just so we have an IOrderedEnumerable in the end.
+            // not really necessary.
+            objectsToProcess = allObjectsSorted
+                .SkipWhile(item => item.Key != lastProcessedFile)
+                .OrderBy(o => o.Key);
+        }
+
         var stopwatch = new Stopwatch();
         var importedCount = 0;
 
-        foreach (var item in allObjectsSorted)
+        foreach (var item in objectsToProcess)
         {
             var objectUrl = $"s3://{S3BucketName}/{item.Key}";
 
