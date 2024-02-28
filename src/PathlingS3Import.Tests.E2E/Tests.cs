@@ -76,6 +76,6 @@ public class Tests(ITestOutputHelper output)
         );
 
         response.Should().NotBeNull();
-        response!.Total.Should().Be(3);
+        response!.Total.Should().Be(7);
     }
 }

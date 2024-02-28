@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reactive.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using DotMake.CommandLine;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
@@ -17,8 +18,11 @@ namespace PathlingS3Import;
 
 // Create a simple class like this to define your root command:
 [CliCommand(Description = "The import command")]
-public class ImportCliCommand
+public partial class ImportCliCommand
 {
+    [GeneratedRegex(".*bundle-(?<timestamp>\\d*)\\.ndjson$")]
+    private static partial Regex BundleObjectNameRegex();
+
     private readonly ILogger<ImportCliCommand> log;
 
     public ImportCliCommand()
@@ -158,38 +162,36 @@ public class ImportCliCommand
             .WithPrefix(prefix)
             .WithRecursive(false);
 
-        var observable =
-            minio.ListObjectsAsync(listArgs)
+        var allObjects =
+            await minio.ListObjectsAsync(listArgs).ToList()
             ?? throw new InvalidOperationException("observable for listing buckets is null");
-
-        var allObjects = new List<Minio.DataModel.Item>();
-
-        using (log.BeginScope("[Listing objects in {ObjectsPath}]", $"{S3BucketName}/{prefix}"))
-        {
-            using var subscription = observable.Subscribe(
-                item =>
-                {
-                    log.LogInformation(
-                        "Got object: {ItemKey} (IsDir: {IsDir})",
-                        item.Key,
-                        item.IsDir
-                    );
-                    if (!item.IsDir && item.Key.EndsWith(".ndjson"))
-                    {
-                        allObjects.Add(item);
-                    }
-                },
-                ex => log.LogError(ex, "Listing objects failed"),
-                () => log.LogInformation("Finished listing.")
-            );
-
-            observable.Wait();
-        }
 
         log.LogInformation("Found a total of {ObjectCount} matching objects.", allObjects.Count);
 
-        var allObjectsSorted = allObjects.OrderBy(o => o.Key);
-        var objectsToProcess = allObjectsSorted;
+        // sort the objects by the value of the timestamp in the object name
+        // in ascending order.
+        var objectsToProcess = allObjects
+            // skip over the checkpoint file (or anything that isn't ndjson)
+            .Where(o => o.Key.EndsWith(".ndjson"))
+            .OrderBy(o =>
+            {
+                var match = BundleObjectNameRegex().Match(o.Key);
+                if (match.Success)
+                {
+                    return Convert.ToDouble(match.Groups["timestamp"].Value);
+                }
+
+                throw new InvalidOperationException(
+                    $"allObjects contains an item whose key doesn't match the regex: {o.Key}"
+                );
+            });
+
+        var index = 0;
+        foreach (var o in objectsToProcess)
+        {
+            log.LogInformation("{Index}. {Key}", index, o.Key);
+            index++;
+        }
 
         var currentProgressObjectName = $"{prefix}pathling-s3-importer-last-imported.txt";
 
@@ -234,7 +236,7 @@ public class ImportCliCommand
 
             // order again just so we have an IOrderedEnumerable in the end.
             // not really necessary.
-            objectsToProcess = allObjectsSorted
+            objectsToProcess = objectsToProcess
                 .SkipWhile(item => $"{S3BucketName}/{item.Key}" != lastProcessedFile)
                 // SkipWhile stops if we reach the lastProcessedFile, but includes the entry itself in the
                 // result, so we need to skip that as well.

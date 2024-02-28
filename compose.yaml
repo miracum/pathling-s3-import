@@ -37,8 +37,8 @@ services:
       - |
         mc alias set minio http://minio:9000 $${MINIO_SERVER_ACCESS_KEY} $${MINIO_SERVER_SECRET_KEY}
         mc mb minio/fhir
-        mc cp /tmp/data/bundle-0.ndjson /tmp/data/bundle-1.ndjson minio/fhir/staging/Patient/
-        mc cp /tmp/data/bundle-0.ndjson /tmp/data/bundle-1.ndjson /tmp/data/pathling-s3-importer-last-imported.txt minio/fhir/staging-with-checkpoint/Patient/
+        mc cp /tmp/data/bundle-*.ndjson minio/fhir/staging/Patient/
+        mc cp /tmp/data/bundle-*.ndjson /tmp/data/pathling-s3-importer-last-imported.txt minio/fhir/staging-with-checkpoint/Patient/
     depends_on:
       wait-for-minio:
         condition: service_completed_successfully
