@@ -6,6 +6,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 using Minio;
 using Minio.DataModel.Args;
 using Polly;
@@ -27,6 +28,7 @@ public class ImportCliCommand
             {
                 options.IncludeScopes = true;
                 options.SingleLine = true;
+                options.ColorBehavior = LoggerColorBehavior.Disabled;
                 options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
             })
         );
@@ -66,6 +68,12 @@ public class ImportCliCommand
         Name = "--dry-run"
     )]
     public bool IsDryRun { get; set; } = false;
+
+    [CliOption(
+        Description = "If enabled, continue processing resources from the last saved checkpoint file.",
+        Name = "--continue-from-last-checkpoint"
+    )]
+    public bool IsContinueFromLastCheckpointEnabled { get; set; } = false;
 
     public void Run()
     {
@@ -181,6 +189,7 @@ public class ImportCliCommand
         log.LogInformation("Found a total of {ObjectCount} matching objects.", allObjects.Count);
 
         var allObjectsSorted = allObjects.OrderBy(o => o.Key);
+        var objectsToProcess = allObjectsSorted;
 
         var currentProgressObjectName = $"{prefix}pathling-s3-importer-last-imported.txt";
 
@@ -189,10 +198,58 @@ public class ImportCliCommand
             currentProgressObjectName
         );
 
+        if (IsContinueFromLastCheckpointEnabled)
+        {
+            log.LogInformation(
+                "Reading last checkpoint file {CurrentProgressObjectName}",
+                currentProgressObjectName
+            );
+
+            var lastProcessedFile = string.Empty;
+            // read the contents of the last checkpoint file
+            var getArgs = new GetObjectArgs()
+                .WithBucket(S3BucketName)
+                .WithObject(currentProgressObjectName)
+                .WithCallbackStream(
+                    async (stream, ct) =>
+                    {
+                        using var reader = new StreamReader(stream, Encoding.UTF8);
+
+                        lastProcessedFile = await reader.ReadToEndAsync(ct);
+                        lastProcessedFile = lastProcessedFile.Trim();
+
+                        await stream.DisposeAsync();
+                    }
+                );
+            await minio.GetObjectAsync(getArgs);
+
+            if (string.IsNullOrEmpty(lastProcessedFile))
+            {
+                throw new InvalidDataException(
+                    "Failed to read last processed file. Contents are null or empty."
+                );
+            }
+
+            log.LogInformation("Continuing after {LastProcessedFile}", lastProcessedFile);
+
+            // order again just so we have an IOrderedEnumerable in the end.
+            // not really necessary.
+            objectsToProcess = allObjectsSorted
+                .SkipWhile(item => $"{S3BucketName}/{item.Key}" != lastProcessedFile)
+                // SkipWhile stops if we reach the lastProcessedFile, but includes the entry itself in the
+                // result, so we need to skip that as well.
+                // Ideally, we'd say `SkipWhile(item.key-timestamp <= lastProcessedFile-timestamp)`.
+                .Skip(1)
+                .OrderBy(o => o.Key);
+        }
+
+        var objectsToProcessCount = objectsToProcess.Count();
+        log.LogInformation("Actually processing {ObjectsToProcessCount}", objectsToProcessCount);
+
         var stopwatch = new Stopwatch();
         var importedCount = 0;
 
-        foreach (var item in allObjectsSorted)
+        foreach (var item in objectsToProcess)
         {
             var objectUrl = $"s3://{S3BucketName}/{item.Key}";
 
@@ -279,11 +336,13 @@ public class ImportCliCommand
 
                 importedCount++;
                 log.LogInformation(
-                    "Imported {ImportedCount} / {AllObjectsCount}",
+                    "Imported {ImportedCount} / {ObjectsToProcessCount}",
                     importedCount,
-                    allObjects.Count
+                    objectsToProcessCount
                 );
             }
         }
+
+        log.LogInformation("Done importing.");
     }
 }
