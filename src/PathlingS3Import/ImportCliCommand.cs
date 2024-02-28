@@ -6,6 +6,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 using Minio;
 using Minio.DataModel.Args;
 using Polly;
@@ -27,6 +28,7 @@ public class ImportCliCommand
             {
                 options.IncludeScopes = true;
                 options.SingleLine = true;
+                options.ColorBehavior = LoggerColorBehavior.Disabled;
                 options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
             })
         );
@@ -198,26 +200,51 @@ public class ImportCliCommand
 
         if (IsContinueFromLastCheckpointEnabled)
         {
-            using var memoryStream = new MemoryStream();
+            log.LogInformation(
+                "Reading last checkpoint file {CurrentProgressObjectName}",
+                currentProgressObjectName
+            );
+
+            var lastProcessedFile = string.Empty;
             // read the contents of the last checkpoint file
             var getArgs = new GetObjectArgs()
                 .WithBucket(S3BucketName)
                 .WithObject(currentProgressObjectName)
                 .WithCallbackStream(
-                    (stream) =>
+                    async (stream, ct) =>
                     {
-                        stream.CopyTo(memoryStream);
+                        using var reader = new StreamReader(stream, Encoding.UTF8);
+
+                        lastProcessedFile = await reader.ReadToEndAsync(ct);
+                        lastProcessedFile = lastProcessedFile.Trim();
+
+                        await stream.DisposeAsync();
                     }
                 );
             await minio.GetObjectAsync(getArgs);
-            using var reader = new StreamReader(memoryStream, Encoding.UTF8);
-            var lastProcessedFile = reader.ReadToEnd();
+
+            if (string.IsNullOrEmpty(lastProcessedFile))
+            {
+                throw new InvalidDataException(
+                    "Failed to read last processed file. Contents are null or empty."
+                );
+            }
+
+            log.LogInformation("Continuing after {LastProcessedFile}", lastProcessedFile);
+
             // order again just so we have an IOrderedEnumerable in the end.
             // not really necessary.
             objectsToProcess = allObjectsSorted
-                .SkipWhile(item => item.Key != lastProcessedFile)
+                .SkipWhile(item => $"{S3BucketName}/{item.Key}" != lastProcessedFile)
+                // SkipWhile stops if we reach the lastProcessedFile, but includes the entry itself in the
+                // result, so we need to skip that as well.
+                // Ideally, we'd say `SkipWhile(item.key-timestamp <= lastProcessedFile-timestamp)`.
+                .Skip(1)
                 .OrderBy(o => o.Key);
         }
+
+        var objectsToProcessCount = objectsToProcess.Count();
+        log.LogInformation("Actually processing {ObjectsToProcessCount}", objectsToProcessCount);
 
         var stopwatch = new Stopwatch();
         var importedCount = 0;
@@ -309,11 +336,13 @@ public class ImportCliCommand
 
                 importedCount++;
                 log.LogInformation(
-                    "Imported {ImportedCount} / {AllObjectsCount}",
+                    "Imported {ImportedCount} / {ObjectsToProcessCount}",
                     importedCount,
-                    allObjects.Count
+                    objectsToProcessCount
                 );
             }
         }
+
+        log.LogInformation("Done importing.");
     }
 }

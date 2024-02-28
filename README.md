@@ -40,3 +40,17 @@ dotnet run --project src/PathlingS3Import/ -- \
     --s3-object-name-prefix=staging/ \
     --dry-run=false
 ```
+
+Or to test importing from a checkpoint:
+
+```sh
+dotnet run --project src/PathlingS3Import/ -- \
+    --s3-endpoint=http://localhost:9000 \
+    --pathling-server-base-url=http://localhost:8082/fhir \
+    --s3-access-key=admin \
+    --s3-secret-key=miniopass \
+    --s3-bucket-name=fhir \
+    --s3-object-name-prefix=staging-with-checkpoint/ \
+    --continue-from-last-checkpoint=true \
+    --dry-run=false
+```
