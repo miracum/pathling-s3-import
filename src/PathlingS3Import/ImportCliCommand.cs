@@ -184,7 +184,8 @@ public partial class ImportCliCommand
                 throw new InvalidOperationException(
                     $"allObjects contains an item whose key doesn't match the regex: {o.Key}"
                 );
-            });
+            })
+            .ToList();
 
         var index = 0;
         foreach (var o in objectsToProcess)
@@ -242,7 +243,16 @@ public partial class ImportCliCommand
                 // result, so we need to skip that as well.
                 // Ideally, we'd say `SkipWhile(item.key-timestamp <= lastProcessedFile-timestamp)`.
                 .Skip(1)
-                .OrderBy(o => o.Key);
+                .ToList();
+
+            log.LogInformation("Listing actual objects to process");
+
+            index = 0;
+            foreach (var o in objectsToProcess)
+            {
+                log.LogInformation("{Index}. {Key}", index, o.Key);
+                index++;
+            }
         }
 
         var objectsToProcessCount = objectsToProcess.Count();
@@ -307,6 +317,12 @@ public partial class ImportCliCommand
 
                     log.LogInformation("{ImportResponse}", response.ToJson());
                     log.LogInformation("Import took {ImportDuration}", stopwatch.Elapsed);
+
+                    log.LogInformation(
+                        "Checkpointing progress as {S3BucketName}/{CurrentProgressObjectName}",
+                        S3BucketName,
+                        currentProgressObjectName
+                    );
 
                     var bytes = Encoding.UTF8.GetBytes(objectUrl);
                     using var memoryStream = new MemoryStream(bytes);
