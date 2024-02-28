@@ -54,3 +54,11 @@ dotnet run --project src/PathlingS3Import/ -- \
     --continue-from-last-checkpoint=true \
     --dry-run=false
 ```
+
+### Run E2E Tests
+
+```sh
+docker build -t ghcr.io/miracum/pathling-s3-import:test .
+
+dotnet test
+```
