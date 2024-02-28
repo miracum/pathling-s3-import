@@ -319,12 +319,14 @@ public partial class ImportCliCommand
                     log.LogInformation("Import took {ImportDuration}", stopwatch.Elapsed);
 
                     log.LogInformation(
-                        "Checkpointing progress as {S3BucketName}/{CurrentProgressObjectName}",
+                        "Checkpointing progress '{S3BucketName}/{ItemKey}' as '{S3BucketName}/{CurrentProgressObjectName}'",
+                        S3BucketName,
+                        item.Key,
                         S3BucketName,
                         currentProgressObjectName
                     );
 
-                    var bytes = Encoding.UTF8.GetBytes(objectUrl);
+                    var bytes = Encoding.UTF8.GetBytes($"{S3BucketName}/{item.Key}");
                     using var memoryStream = new MemoryStream(bytes);
 
                     // persist progress
