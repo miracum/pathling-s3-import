@@ -1,6 +1,6 @@
 services:
   minio:
-    image: docker.io/bitnami/minio:2024.2.17-debian-12-r2@sha256:4d04a41f9d385d51ecd9be8dafca13fe9d56be2cc1c5ea8f98e6cfb235d87ae5
+    image: docker.io/bitnami/minio:2024.3.30-debian-12-r2@sha256:60232ca2f006e3ad458580fb529c6f12e07f19bfcf9c27335077b6e6873907fa
     environment:
       MINIO_ROOT_USER: "admin"
       # kics-scan ignore-line
