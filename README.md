@@ -38,6 +38,8 @@ dotnet run --project src/PathlingS3Import/ -- \
     --s3-secret-key=miniopass \
     --s3-bucket-name=fhir \
     --s3-object-name-prefix=staging/ \
+    --enable-metrics=true \
+    --pushgateway-endpoint=http://localhost:9091/ \
     --dry-run=false
 ```
 

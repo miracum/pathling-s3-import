@@ -79,3 +79,8 @@ services:
     depends_on:
       pathling:
         condition: service_started
+
+  pushgateway:
+    image: docker.io/prom/pushgateway:v1.8.0@sha256:c159e946abf44e0cf4ae53aa03d99326497a35acca526739c7f8b01a0183bb50
+    ports:
+      - "127.0.0.1:9091:9091"

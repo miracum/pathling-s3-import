@@ -57,6 +57,11 @@ public class Tests(ITestOutputHelper output)
         var stdout = stdoutReader.ReadToEnd();
         output.WriteLine(stdout);
 
+        consumer.Stderr.Seek(0, SeekOrigin.Begin);
+        using var stderrReader = new StreamReader(consumer.Stderr);
+        var stderr = stderrReader.ReadToEnd();
+        output.WriteLine(stderr);
+
         exitCode.Should().Be(0);
 
         // use a different base URL since this test isn't run inside
