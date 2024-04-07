@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reactive.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using DotMake.CommandLine;
@@ -12,6 +13,9 @@ using Minio;
 using Minio.DataModel.Args;
 using Polly;
 using Polly.Retry;
+using Prometheus.Client;
+using Prometheus.Client.Collectors;
+using Prometheus.Client.MetricPusher;
 using Task = System.Threading.Tasks.Task;
 
 namespace PathlingS3Import;
@@ -24,6 +28,13 @@ public partial class ImportCliCommand
     private static partial Regex BundleObjectNameRegex();
 
     private readonly ILogger<ImportCliCommand> log;
+
+    private readonly CollectorRegistry collectorRegistry;
+    private readonly MetricFactory metricFactory;
+
+    private readonly IMetricFamily<ICounter, ValueTuple<string>> bundlesImportedCounter;
+    private readonly IMetricFamily<IHistogram, ValueTuple<string>> importDurationHistogram;
+    private readonly IMetricFamily<ICounter, ValueTuple<string>> resourcesImportedCounter;
 
     public ImportCliCommand()
     {
@@ -38,6 +49,28 @@ public partial class ImportCliCommand
         );
 
         log = loggerFactory.CreateLogger<ImportCliCommand>();
+
+        collectorRegistry = new CollectorRegistry();
+        metricFactory = new MetricFactory(collectorRegistry);
+
+        bundlesImportedCounter = metricFactory.CreateCounter(
+            "pathlings3import_bundles_imported_total",
+            "Total number of imported bundles by resource type.",
+            "resourceType"
+        );
+
+        importDurationHistogram = metricFactory.CreateHistogram(
+            "pathlings3import_import_duration_seconds",
+            "Time it took for the $import operation to complete.",
+            "resourceType",
+            buckets: [0.5d, 1d, 5d, 10d, 30d, 60d, 150d, 300d, 600d]
+        );
+
+        resourcesImportedCounter = metricFactory.CreateCounter(
+            "pathlings3import_resources_imported_total",
+            "Total number of imported resources across all bundles processed.",
+            "resourceType"
+        );
     }
 
     [CliOption(Description = "The S3 endpoint URI", Name = "--s3-endpoint")]
@@ -78,6 +111,41 @@ public partial class ImportCliCommand
         Name = "--continue-from-last-checkpoint"
     )]
     public bool IsContinueFromLastCheckpointEnabled { get; set; } = false;
+
+    [CliOption(
+        Description = "If enabled, push metrics about the import to the specified Prometheus PushGateway.",
+        Name = "--enable-metrics"
+    )]
+    public bool IsMetricsEnabled { get; set; } = false;
+
+    [CliOption(
+        Description = "Endpoint URL for the Prometheus PushGateway.",
+        Name = "--pushgateway-endpoint",
+        Required = false
+    )]
+    public Uri? PushGatewayEndpoint { get; set; }
+
+    [CliOption(
+        Description = "Prometheus PushGateway job name.",
+        Name = "--pushgateway-job-name",
+        Required = false
+    )]
+    public string PushGatewayJobName { get; set; } =
+        Assembly.GetExecutingAssembly().GetName().Name!;
+
+    [CliOption(
+        Description = "Prometheus PushGateway job instance.",
+        Name = "--pushgateway-job-instance",
+        Required = false
+    )]
+    public string? PushGatewayJobInstance { get; set; }
+
+    [CliOption(
+        Description = "Value for the `Authorization` header",
+        Name = "--pushgateway-auth-header",
+        Required = false
+    )]
+    public string? PushGatewayAuthHeader { get; set; }
 
     public void Run()
     {
@@ -126,7 +194,38 @@ public partial class ImportCliCommand
             .WithCredentials(S3AccessKey, S3SecretKey)
             .Build();
 
-        DoAsync(minio, fhirClient, retryPipeline).Wait();
+        if (IsMetricsEnabled)
+        {
+            ArgumentNullException.ThrowIfNull(PushGatewayEndpoint);
+
+            var options = new MetricPusherOptions
+            {
+                Endpoint = PushGatewayEndpoint.AbsoluteUri,
+                Job = PushGatewayJobName,
+                Instance = PushGatewayJobInstance,
+                CollectorRegistry = collectorRegistry,
+            };
+
+            if (PushGatewayAuthHeader is not null)
+            {
+                options.AdditionalHeaders = new Dictionary<string, string>
+                {
+                    { "Authorization", PushGatewayAuthHeader }
+                };
+            }
+
+            using var metricPusher = new MetricPusher(options);
+            var pushServer = new MetricPushServer(metricPusher, TimeSpan.FromSeconds(10));
+
+            pushServer.Start();
+            DoAsync(minio, fhirClient, retryPipeline).Wait();
+            metricPusher.PushAsync().Wait();
+            pushServer.Stop();
+        }
+        else
+        {
+            DoAsync(minio, fhirClient, retryPipeline).Wait();
+        }
     }
 
     private async Task DoAsync(
@@ -255,7 +354,7 @@ public partial class ImportCliCommand
             }
         }
 
-        var objectsToProcessCount = objectsToProcess.Count();
+        var objectsToProcessCount = objectsToProcess.Count;
         log.LogInformation("Actually processing {ObjectsToProcessCount}", objectsToProcessCount);
 
         var stopwatch = new Stopwatch();
@@ -264,6 +363,35 @@ public partial class ImportCliCommand
         foreach (var item in objectsToProcess)
         {
             var objectUrl = $"s3://{S3BucketName}/{item.Key}";
+
+            var resourceCountInFile = 0;
+
+            using (log.BeginScope("[Counting lines of {NdjsonObjectUrl}]", objectUrl))
+            {
+                var getArgs = new GetObjectArgs()
+                    .WithBucket(S3BucketName)
+                    .WithObject(item.Key)
+                    .WithCallbackStream(
+                        async (stream, ct) =>
+                        {
+                            using var reader = new StreamReader(stream, Encoding.UTF8);
+                            while (await reader.ReadLineAsync(ct) is not null)
+                            {
+                                resourceCountInFile++;
+                            }
+                        }
+                    );
+                stopwatch.Restart();
+                await minio.GetObjectAsync(getArgs);
+                stopwatch.Stop();
+
+                log.LogInformation(
+                    "{ObjectUrl} contains {ResourceCount} resources. Counting took {ResourceCountDuration}",
+                    objectUrl,
+                    resourceCountInFile,
+                    stopwatch
+                );
+            }
 
             using (log.BeginScope("[Importing ndjson file {NdjsonObjectUrl}]", objectUrl))
             {
@@ -315,9 +443,19 @@ public partial class ImportCliCommand
                     });
                     stopwatch.Stop();
 
-                    log.LogInformation("{ImportResponse}", response.ToJson());
-                    log.LogInformation("Import took {ImportDuration}", stopwatch.Elapsed);
+                    importDurationHistogram
+                        .WithLabels(ImportResourceType.ToString())
+                        .Observe(stopwatch.Elapsed.TotalSeconds);
 
+                    // resource import throughput
+                    var resourcesPerSecond = resourceCountInFile / stopwatch.Elapsed.TotalSeconds;
+
+                    log.LogInformation("{ImportResponse}", response.ToJson());
+                    log.LogInformation(
+                        "Import took {ImportDuration}. {ResourcesPerSecond} resources/s",
+                        stopwatch.Elapsed,
+                        resourcesPerSecond
+                    );
                     log.LogInformation(
                         "Checkpointing progress '{S3BucketName}/{ItemKey}' as '{S3BucketName}/{CurrentProgressObjectName}'",
                         S3BucketName,
@@ -353,6 +491,11 @@ public partial class ImportCliCommand
                     log.LogInformation("Running import in dry run mode. Waiting a few seconds.");
                     await Task.Delay(TimeSpan.FromSeconds(5));
                 }
+
+                bundlesImportedCounter.WithLabels(ImportResourceType.ToString()).Inc();
+                resourcesImportedCounter
+                    .WithLabels(ImportResourceType.ToString())
+                    .Inc(resourceCountInFile);
 
                 importedCount++;
                 log.LogInformation(

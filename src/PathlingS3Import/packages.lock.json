@@ -59,6 +59,15 @@
         "resolved": "8.3.1",
         "contentHash": "b9mMAjqXuCXFCtf/RtRPwFUkAm/sz37s7G+taDvS5EqfkJsLiWfO2xO2cSISjIgIY+88oIZTGguP6UrRGRlqzg=="
       },
+      "Prometheus.Client.MetricPusher": {
+        "type": "Direct",
+        "requested": "[3.1.0, )",
+        "resolved": "3.1.0",
+        "contentHash": "A43R2x1XKTD2NebcR2E1OmKDpww2CR7okmMwFS0HiMWG5OLruwPLSGMw6JuGlSu1tOlF55tIV7XX6mjb+gAzIw==",
+        "dependencies": {
+          "Prometheus.Client": "[5.2.0, 6.0.0)"
+        }
+      },
       "CommunityToolkit.HighPerformance": {
         "type": "Transitive",
         "resolved": "8.2.2",
@@ -181,6 +190,19 @@
         "type": "Transitive",
         "resolved": "13.0.3",
         "contentHash": "HrC5BXdl00IP9zeV+0Z848QWPAoCr9P3bDEZguI+gkLcBKAOxix/tLEAAHC+UvDNPv4a2d18lOReHMOagPa+zQ=="
+      },
+      "Prometheus.Client": {
+        "type": "Transitive",
+        "resolved": "5.2.0",
+        "contentHash": "9Wa4qzz9WtKmXr2Yii5sOwAaKCzxwwfMg27wrHqrejw54icwRuWRSX68QhvUFwJnCKqpXc7SpIS3kzzmcfrB8w==",
+        "dependencies": {
+          "Prometheus.Client.Abstractions": "5.2.0"
+        }
+      },
+      "Prometheus.Client.Abstractions": {
+        "type": "Transitive",
+        "resolved": "5.2.0",
+        "contentHash": "ROwoYLSTmodSTQLQWrqVLNh4ZZyXAA+0wPGKM+1dhCGUPJQm5qjrKMhMVL8Fy6waEU1CFtf+0nLeIsvdDCUFAQ=="
       },
       "System.ComponentModel.Annotations": {
         "type": "Transitive",
