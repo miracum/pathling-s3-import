@@ -364,10 +364,9 @@ public partial class ImportCliCommand
         {
             var objectUrl = $"s3://{S3BucketName}/{item.Key}";
 
-            var resourceCountInFile = 0;
-
-            using (log.BeginScope("[Counting lines of {NdjsonObjectUrl}]", objectUrl))
+            using (log.BeginScope("[Importing ndjson file {NdjsonObjectUrl}]", objectUrl))
             {
+                var resourceCountInFile = 0;
                 var getArgs = new GetObjectArgs()
                     .WithBucket(S3BucketName)
                     .WithObject(item.Key)
@@ -391,10 +390,7 @@ public partial class ImportCliCommand
                     resourceCountInFile,
                     stopwatch
                 );
-            }
 
-            using (log.BeginScope("[Importing ndjson file {NdjsonObjectUrl}]", objectUrl))
-            {
                 var parameter = new Parameters.ParameterComponent()
                 {
                     Name = "source",
@@ -452,8 +448,9 @@ public partial class ImportCliCommand
 
                     log.LogInformation("{ImportResponse}", response.ToJson());
                     log.LogInformation(
-                        "Import took {ImportDuration}. {ResourcesPerSecond} resources/s",
+                        "Import took {ImportDuration} for a bundle of {ResourceCountInFile}. {ResourcesPerSecond} resources/s",
                         stopwatch.Elapsed,
+                        resourceCountInFile,
                         resourcesPerSecond
                     );
                     log.LogInformation(
