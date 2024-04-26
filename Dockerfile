@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0.203-jammy@sha256:c2c75cb385be90e8ade1dbe44cbb5a6195b7dbbe3386772da8b17fd0277a3d5f AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0.204-jammy@sha256:8e2c7b29ec394ae5bfd9d986085b233cb3ce6ade2898574a6fcd3eaa7b002389 AS build
 WORKDIR /build
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1
 
@@ -15,7 +15,7 @@ RUN dotnet publish \
     -o /build/publish \
     src/PathlingS3Import/PathlingS3Import.csproj
 
-FROM mcr.microsoft.com/dotnet/runtime:8.0.3-jammy-chiseled@sha256:2ae069fda85aec19b05dcb4524d794b67202cd6c870d52f77ff93b53b279b6f7
+FROM mcr.microsoft.com/dotnet/runtime:8.0.4-jammy-chiseled@sha256:55123c37f3c365a638efb6987497e3210e9559d9ce928dcc0251eb13629747bd
 WORKDIR /opt/pathling-s3-import
 USER 65534:65534
 ENV DOTNET_ENVIRONMENT="Production" \
