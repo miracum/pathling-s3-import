@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Reactive.Linq;
-using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using DotMake.CommandLine;
@@ -8,11 +7,9 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Console;
 using Minio;
 using Minio.DataModel.Args;
 using Polly;
-using Polly.Retry;
 using Prometheus.Client;
 using Prometheus.Client.Collectors;
 using Prometheus.Client.MetricPusher;
@@ -21,13 +18,10 @@ using Task = System.Threading.Tasks.Task;
 namespace PathlingS3Import;
 
 // Create a simple class like this to define your root command:
-[CliCommand(Description = "The import command")]
-public partial class ImportCliCommand
+[CliCommand(Description = "The import command", Parent = typeof(RootCommand))]
+public partial class ImportCommand : CommandBase
 {
-    [GeneratedRegex(".*bundle-(?<timestamp>\\d*)\\.ndjson$")]
-    private static partial Regex BundleObjectNameRegex();
-
-    private readonly ILogger<ImportCliCommand> log;
+    private readonly ILogger<ImportCommand> log;
 
     private readonly CollectorRegistry collectorRegistry;
     private readonly MetricFactory metricFactory;
@@ -36,19 +30,9 @@ public partial class ImportCliCommand
     private readonly IMetricFamily<IHistogram, ValueTuple<string>> importDurationHistogram;
     private readonly IMetricFamily<ICounter, ValueTuple<string>> resourcesImportedCounter;
 
-    public ImportCliCommand()
+    public ImportCommand()
     {
-        using var loggerFactory = LoggerFactory.Create(builder =>
-            builder.AddSimpleConsole(options =>
-            {
-                options.IncludeScopes = true;
-                options.SingleLine = true;
-                options.ColorBehavior = LoggerColorBehavior.Disabled;
-                options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
-            })
-        );
-
-        log = loggerFactory.CreateLogger<ImportCliCommand>();
+        log = LogFactory.CreateLogger<ImportCommand>();
 
         collectorRegistry = new CollectorRegistry();
         metricFactory = new MetricFactory(collectorRegistry);
@@ -73,27 +57,6 @@ public partial class ImportCliCommand
         );
     }
 
-    [CliOption(Description = "The S3 endpoint URI", Name = "--s3-endpoint")]
-    public Uri? S3Endpoint { get; set; }
-
-    [CliOption(Description = "The S3 access key", Name = "--s3-access-key")]
-    public string? S3AccessKey { get; set; }
-
-    [CliOption(Description = "The S3 secret key", Name = "--s3-secret-key")]
-    public string? S3SecretKey { get; set; }
-
-    [CliOption(
-        Description = "The name of the bucket containing the resources to import",
-        Name = "--s3-bucket-name"
-    )]
-    public string? S3BucketName { get; set; } = "fhir";
-
-    [CliOption(
-        Description = "The S3 object name prefix. Corresponds to kafka-fhir-to-server's `S3_OBJECT_NAME_PREFIX`",
-        Name = "--s3-object-name-prefix"
-    )]
-    public string? S3ObjectNamePrefix { get; set; } = "";
-
     [CliOption(Description = "The FHIR base URL of the Pathling server")]
     public Uri? PathlingServerBaseUrl { get; set; }
 
@@ -101,82 +64,18 @@ public partial class ImportCliCommand
     public ResourceType ImportResourceType { get; set; } = ResourceType.Patient;
 
     [CliOption(
-        Description = "If enabled, list and read all objects but don't invoke the import operation or store the progress.",
-        Name = "--dry-run"
-    )]
-    public bool IsDryRun { get; set; } = false;
-
-    [CliOption(
         Description = "If enabled, continue processing resources from the last saved checkpoint file.",
         Name = "--continue-from-last-checkpoint"
     )]
     public bool IsContinueFromLastCheckpointEnabled { get; set; } = false;
 
-    [CliOption(
-        Description = "If enabled, push metrics about the import to the specified Prometheus PushGateway.",
-        Name = "--enable-metrics"
-    )]
-    public bool IsMetricsEnabled { get; set; } = false;
-
-    [CliOption(
-        Description = "Endpoint URL for the Prometheus PushGateway.",
-        Name = "--pushgateway-endpoint",
-        Required = false
-    )]
-    public Uri? PushGatewayEndpoint { get; set; }
-
-    [CliOption(
-        Description = "Prometheus PushGateway job name.",
-        Name = "--pushgateway-job-name",
-        Required = false
-    )]
-    public string PushGatewayJobName { get; set; } =
-        Assembly.GetExecutingAssembly().GetName().Name!;
-
-    [CliOption(
-        Description = "Prometheus PushGateway job instance.",
-        Name = "--pushgateway-job-instance",
-        Required = false
-    )]
-    public string? PushGatewayJobInstance { get; set; }
-
-    [CliOption(
-        Description = "Value for the `Authorization` header",
-        Name = "--pushgateway-auth-header",
-        Required = false
-    )]
-    public string? PushGatewayAuthHeader { get; set; }
-
     public void Run()
     {
-        var retryOptions = new RetryStrategyOptions
-        {
-            ShouldHandle = new PredicateBuilder().Handle<Exception>(),
-            BackoffType = DelayBackoffType.Exponential,
-            UseJitter = true, // Adds a random factor to the delay
-            MaxRetryAttempts = 10,
-            Delay = TimeSpan.FromSeconds(10),
-            OnRetry = args =>
-            {
-                log.LogInformation(
-                    "Retrying. Attempt: {AttemptNumber}. Duration: {Duration}. Exception: {Exception}",
-                    args.AttemptNumber,
-                    args.Duration,
-                    args.Outcome.Exception
-                );
-                // Event handlers can be asynchronous; here, we return an empty ValueTask.
-                return default;
-            }
-        };
-
-        var retryPipeline = new ResiliencePipelineBuilder()
-            .AddRetry(retryOptions) // Add retry using the default options
-            .Build(); // Builds the resilience pipeline
-
         log.LogInformation(
             "Pathling FHIR  base URL set to {PathlingBaseUrl}",
             PathlingServerBaseUrl
         );
+
         using var fhirClient = new FhirClient(
             PathlingServerBaseUrl,
             settings: new FhirClientSettings
@@ -189,7 +88,7 @@ public partial class ImportCliCommand
         );
 
         log.LogInformation("Minio endpoint set to {S3Endpoint}", S3Endpoint);
-        using var minio = new MinioClient()
+        var minio = new MinioClient()
             .WithEndpoint(S3Endpoint)
             .WithCredentials(S3AccessKey, S3SecretKey)
             .Build();
@@ -218,13 +117,13 @@ public partial class ImportCliCommand
             var pushServer = new MetricPushServer(metricPusher, TimeSpan.FromSeconds(10));
 
             pushServer.Start();
-            DoAsync(minio, fhirClient, retryPipeline).Wait();
+            DoAsync(minio, fhirClient, RetryPipeline).Wait();
             metricPusher.PushAsync().Wait();
             pushServer.Stop();
         }
         else
         {
-            DoAsync(minio, fhirClient, retryPipeline).Wait();
+            DoAsync(minio, fhirClient, RetryPipeline).Wait();
         }
     }
 

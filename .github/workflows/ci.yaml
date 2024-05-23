@@ -2,7 +2,9 @@ name: ci
 
 on:
   push:
-    branches: [master]
+    branches:
+      - master
+      - next
   release:
     types: [created]
   pull_request:
