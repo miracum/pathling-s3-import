@@ -68,6 +68,7 @@ dotnet run --project src/PathlingS3Import/ -- merge \
     --s3-secret-key=miniopass \
     --s3-bucket-name=fhir \
     --s3-object-name-prefix=staging/ \
+    --max-merged-bundle-size=10 \
     --dry-run=true
 ```
 
