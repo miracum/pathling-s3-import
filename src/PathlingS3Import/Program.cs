@@ -1,4 +1,4 @@
-﻿using DotMake.CommandLine;
+using DotMake.CommandLine;
 using PathlingS3Import;
 
-return Cli.Run<ImportCliCommand>(args);
+return Cli.Run<RootCommand>(args);
