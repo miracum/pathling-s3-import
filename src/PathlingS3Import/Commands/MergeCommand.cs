@@ -32,12 +32,15 @@ public partial class MergeCommand : CommandBase
     )]
     public ResourceType ResourceType { get; set; } = ResourceType.Patient;
 
+    [CliOption(Description = "The maximum size of the merged bundle in bytes. Default: 1 GiB")]
+    public int MaxMergedBundleSizeInBytes { get; set; } = 1 * 1024 * 1024 * 1024;
+
     public MergeCommand()
     {
         log = LogFactory.CreateLogger<MergeCommand>();
     }
 
-    public async System.Threading.Tasks.Task RunAsync(CliContext context)
+    public async System.Threading.Tasks.Task RunAsync()
     {
         log.LogInformation("Minio endpoint set to {S3Endpoint}", S3Endpoint);
         var minio = new MinioClient()
@@ -93,7 +96,7 @@ public partial class MergeCommand : CommandBase
             .ToList();
 
         var currentMergedResources = new Dictionary<string, string>();
-
+        var estimatedSizeInBytes = 0;
         foreach (var item in objectsToProcess)
         {
             var objectUrl = $"s3://{S3BucketName}/{item.Key}";
@@ -123,6 +126,7 @@ public partial class MergeCommand : CommandBase
                                 // adds or updates the resource by its id in the dictionary.
                                 // store the plaintext resource to avoid serializing again later
                                 currentMergedResources[resource.Id] = line;
+                                estimatedSizeInBytes += Encoding.UTF8.GetByteCount(line);
                                 resourceCountInFile++;
                             }
                         }
@@ -135,15 +139,25 @@ public partial class MergeCommand : CommandBase
                     resourceCountInFile
                 );
 
-                if (currentMergedResources.Count >= MaxMergedBundleSize)
+                if (
+                    currentMergedResources.Count >= MaxMergedBundleSize
+                    || estimatedSizeInBytes >= MaxMergedBundleSizeInBytes
+                )
                 {
                     log.LogInformation(
-                        "Created merged bundle of {Count} resources",
-                        currentMergedResources.Count
+                        "Created merged bundle of {Count} resources. "
+                            + "Estimated size: {EstimatedSizeInBytes} B ({EstimatedSizeInMebiBytes} MiB). "
+                            + "Limit: {MaxMergedBundleSizeInBytes} B ({MaxMergedBundleSizeInMebiBytes} MiB)",
+                        currentMergedResources.Count,
+                        estimatedSizeInBytes,
+                        estimatedSizeInBytes / 1024 / 1024,
+                        MaxMergedBundleSizeInBytes,
+                        MaxMergedBundleSizeInBytes / 1024 / 1024
                     );
 
                     await PutMergedBundleAsync(minio, currentMergedResources);
                     currentMergedResources.Clear();
+                    estimatedSizeInBytes = 0;
                 }
             }
         }
@@ -151,12 +165,13 @@ public partial class MergeCommand : CommandBase
         if (currentMergedResources.Count > 0)
         {
             log.LogInformation(
-                "Resources not reaching threshold: {Count}",
+                "Resources remaining: {Count}. Uploading as smaller bundle.",
                 currentMergedResources.Count
             );
 
             await PutMergedBundleAsync(minio, currentMergedResources);
             currentMergedResources.Clear();
+            estimatedSizeInBytes = 0;
         }
     }
 
@@ -174,8 +189,10 @@ public partial class MergeCommand : CommandBase
 
         foreach (var kvp in mergedBundle)
         {
-            writer.WriteLine(kvp.Value);
+            await writer.WriteLineAsync(kvp.Value);
         }
+
+        await writer.FlushAsync();
 
         log.LogInformation(
             "Uploading merged bundle with size {SizeInBytes} as {ObjectName} to {S3BucketName}",
