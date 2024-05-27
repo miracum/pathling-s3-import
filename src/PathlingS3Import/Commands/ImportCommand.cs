@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reactive.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using DotMake.CommandLine;
 using Hl7.Fhir.Model;
@@ -29,6 +30,12 @@ public partial class ImportCommand : CommandBase
     private readonly IMetricFamily<ICounter, ValueTuple<string>> bundlesImportedCounter;
     private readonly IMetricFamily<IHistogram, ValueTuple<string>> importDurationHistogram;
     private readonly IMetricFamily<ICounter, ValueTuple<string>> resourcesImportedCounter;
+
+    private class ImportCheckpoint
+    {
+        public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+        public string? LastImportedObjectUrl { get; set; }
+    }
 
     public ImportCommand()
     {
@@ -69,7 +76,10 @@ public partial class ImportCommand : CommandBase
     )]
     public bool IsContinueFromLastCheckpointEnabled { get; set; } = false;
 
-    public void Run()
+    [CliOption(Description = "Name of the checkpoint file", Name = "--checkpoint-file-name")]
+    public string CheckpointFileName { get; set; } = "_last-import-checkpoint.json";
+
+    public async Task RunAsync()
     {
         log.LogInformation(
             "Pathling FHIR  base URL set to {PathlingBaseUrl}",
@@ -117,13 +127,13 @@ public partial class ImportCommand : CommandBase
             var pushServer = new MetricPushServer(metricPusher, TimeSpan.FromSeconds(10));
 
             pushServer.Start();
-            DoAsync(minio, fhirClient, RetryPipeline).Wait();
+            await DoAsync(minio, fhirClient, RetryPipeline);
             metricPusher.PushAsync().Wait();
             pushServer.Stop();
         }
         else
         {
-            DoAsync(minio, fhirClient, RetryPipeline).Wait();
+            await DoAsync(minio, fhirClient, RetryPipeline);
         }
     }
 
@@ -192,32 +202,47 @@ public partial class ImportCommand : CommandBase
             index++;
         }
 
-        var currentProgressObjectName = $"{prefix}pathling-s3-importer-last-imported.txt";
+        var checkpointObjectName = $"{prefix}{CheckpointFileName}";
 
         log.LogInformation(
-            "Name of the current progress tracker object set to {CurrentProgressObjectName}.",
-            currentProgressObjectName
+            "Name of the current progress checkpoint object set to {CheckpointObjectName}.",
+            checkpointObjectName
         );
 
         if (IsContinueFromLastCheckpointEnabled)
         {
             log.LogInformation(
-                "Reading last checkpoint file {CurrentProgressObjectName}",
-                currentProgressObjectName
+                "Reading last checkpoint file from {CheckpointObjectName}",
+                checkpointObjectName
             );
 
             var lastProcessedFile = string.Empty;
             // read the contents of the last checkpoint file
             var getArgs = new GetObjectArgs()
                 .WithBucket(S3BucketName)
-                .WithObject(currentProgressObjectName)
+                .WithObject(checkpointObjectName)
                 .WithCallbackStream(
                     async (stream, ct) =>
                     {
                         using var reader = new StreamReader(stream, Encoding.UTF8);
 
-                        lastProcessedFile = await reader.ReadToEndAsync(ct);
-                        lastProcessedFile = lastProcessedFile.Trim();
+                        var checkpointJson = await reader.ReadToEndAsync(ct);
+                        var checkpoint = JsonSerializer.Deserialize<ImportCheckpoint>(
+                            checkpointJson
+                        );
+
+                        log.LogInformation("Last checkpoint: {CheckpointJson}", checkpointJson);
+
+                        if (checkpoint is not null)
+                        {
+                            lastProcessedFile = checkpoint.LastImportedObjectUrl;
+                        }
+                        else
+                        {
+                            log.LogError(
+                                "Failed to read checkpoint file: deserialized object is null"
+                            );
+                        }
 
                         await stream.DisposeAsync();
                     }
@@ -236,7 +261,7 @@ public partial class ImportCommand : CommandBase
             // order again just so we have an IOrderedEnumerable in the end.
             // not really necessary.
             objectsToProcess = objectsToProcess
-                .SkipWhile(item => $"{S3BucketName}/{item.Key}" != lastProcessedFile)
+                .SkipWhile(item => $"s3://{S3BucketName}/{item.Key}" != lastProcessedFile)
                 // SkipWhile stops if we reach the lastProcessedFile, but includes the entry itself in the
                 // result, so we need to skip that as well.
                 // Ideally, we'd say `SkipWhile(item.key-timestamp <= lastProcessedFile-timestamp)`.
@@ -353,21 +378,22 @@ public partial class ImportCommand : CommandBase
                         resourcesPerSecond
                     );
                     log.LogInformation(
-                        "Checkpointing progress '{S3BucketName}/{ItemKey}' as '{S3BucketName}/{CurrentProgressObjectName}'",
+                        "Checkpointing progress '{ObjectUrl}' as '{S3BucketName}/{CheckpointObjectName}'",
+                        objectUrl,
                         S3BucketName,
-                        item.Key,
-                        S3BucketName,
-                        currentProgressObjectName
+                        checkpointObjectName
                     );
 
-                    var bytes = Encoding.UTF8.GetBytes($"{S3BucketName}/{item.Key}");
+                    var checkpoint = new ImportCheckpoint() { LastImportedObjectUrl = objectUrl, };
+                    var jsonString = JsonSerializer.Serialize(checkpoint);
+                    var bytes = Encoding.UTF8.GetBytes(jsonString);
                     using var memoryStream = new MemoryStream(bytes);
 
                     // persist progress
                     var putArgs = new PutObjectArgs()
                         .WithBucket(S3BucketName)
-                        .WithObject(currentProgressObjectName)
-                        .WithContentType("text/plain")
+                        .WithObject(checkpointObjectName)
+                        .WithContentType("application/json")
                         .WithStreamData(memoryStream)
                         .WithObjectSize(bytes.LongLength);
 
