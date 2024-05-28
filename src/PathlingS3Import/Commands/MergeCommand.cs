@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Reactive.Linq;
 using System.Text;
 using System.Text.Json;
@@ -95,7 +96,7 @@ public partial class MergeCommand : CommandBase
             })
             .ToList();
 
-        var currentMergedResources = new Dictionary<string, string>();
+        var currentMergedResources = new ConcurrentDictionary<string, string>();
         var estimatedSizeInBytes = 0;
         foreach (var item in objectsToProcess)
         {

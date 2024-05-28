@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using System.Reactive.Linq;
 using System.Text;
@@ -78,6 +79,9 @@ public partial class ImportCommand : CommandBase
 
     [CliOption(Description = "Name of the checkpoint file", Name = "--checkpoint-file-name")]
     public string CheckpointFileName { get; set; } = "_last-import-checkpoint.json";
+
+    [CliOption(Description = "Delay to wait after importing a bundle")]
+    public TimeSpan SleepAfterImport { get; set; } = TimeSpan.FromSeconds(10);
 
     public async Task RunAsync()
     {
@@ -425,6 +429,13 @@ public partial class ImportCommand : CommandBase
                     importedCount,
                     objectsToProcessCount
                 );
+
+                log.LogInformation(
+                    "Sleeping after import for {SleepAfterImportSeconds} s",
+                    SleepAfterImport.TotalSeconds
+                );
+
+                await Task.Delay(SleepAfterImport);
             }
         }
 
