@@ -38,7 +38,7 @@ services:
         mc alias set minio http://minio:9000 $${MINIO_SERVER_ACCESS_KEY} $${MINIO_SERVER_SECRET_KEY}
         mc mb minio/fhir
         mc cp /tmp/data/bundle-*.ndjson minio/fhir/staging/Patient/
-        mc cp /tmp/data/bundle-*.ndjson /tmp/data/pathling-s3-importer-last-imported.txt minio/fhir/staging-with-checkpoint/Patient/
+        mc cp /tmp/data/bundle-*.ndjson /tmp/data/_last-import-checkpoint.json minio/fhir/staging-with-checkpoint/Patient/
     depends_on:
       wait-for-minio:
         condition: service_completed_successfully
@@ -46,18 +46,39 @@ services:
       - $PWD/hack/data/:/tmp/data/:ro
 
   pathling:
-    image: docker.io/aehrc/pathling:6.4.2@sha256:9b8ee32d4b8bb40192d6bf25814492a616153a0df15d178c286db9ec80c1c85e
+    image: docker.io/aehrc/pathling:7.0.1@sha256:70177a4eb7a20a5edba7a4957ac6cd245c29e3c306e98c5de59fe2974c1f71b8
+    ipc: none
+    security_opt:
+      - "no-new-privileges:true"
+    cap_drop:
+      - ALL
+    privileged: false
     environment:
-      pathling.storage.warehouseUrl: s3://fhir
-      pathling.import.allowableSources: s3://fhir/staging
+      JAVA_TOOL_OPTIONS: |
+        -Xmx18g
+        -Xss64m
+        -Duser.timezone=UTC
+        --add-exports=java.base/sun.nio.ch=ALL-UNNAMED
+        --add-opens=java.base/java.net=ALL-UNNAMED
+        --add-opens=java.base/java.nio=ALL-UNNAMED
+        --add-opens=java.base/java.util=ALL-UNNAMED
+        --add-opens=java.base/java.lang.invoke=ALL-UNNAMED
+      pathling.storage.warehouseUrl: s3a://fhir
+      pathling.import.allowableSources: s3a://fhir/staging
       pathling.terminology.enabled: false
       pathling.terminology.serverUrl: http://localhost:8080/i-dont-exist
       fs.s3a.endpoint: "http://minio:9000"
-      fs.s3a.aws.credentials.provider: "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
       fs.s3a.access.key: "admin"
       fs.s3a.secret.key: "miniopass"
       fs.s3a.impl: "org.apache.hadoop.fs.s3a.S3AFileSystem"
       fs.s3a.path.style.access: "true"
+      spark.sql.parquet.compression.codec: "zstd"
+      spark.io.compression.codec: "zstd"
+      parquet.compression.codec.zstd.level: "9"
+      spark.serializer: "org.apache.spark.serializer.KryoSerializer"
+      spark.master: "local[4]"
+      spark.executor.memory: 4g
+      spark.driver.memory: 4g
     ports:
       - "8082:8080"
     depends_on:

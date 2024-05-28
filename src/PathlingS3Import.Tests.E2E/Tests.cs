@@ -26,6 +26,7 @@ public class Tests(ITestOutputHelper output)
 
         string[] args =
         [
+            "import",
             "--s3-endpoint=http://host.docker.internal:9000",
             $"--pathling-server-base-url={pathlingServerBaseUrl}",
             "--s3-access-key=admin",
@@ -81,6 +82,6 @@ public class Tests(ITestOutputHelper output)
         );
 
         response.Should().NotBeNull();
-        response!.Total.Should().Be(7);
+        response!.Total.Should().Be(50007);
     }
 }
