@@ -134,9 +134,12 @@ public partial class MergeCommand : CommandBase
                 await minio.GetObjectAsync(getArgs);
 
                 log.LogInformation(
-                    "{ObjectUrl} contains {ResourceCount} resources",
+                    "{ObjectUrl} contains {ResourceCount} resources. "
+                        + "Current bundle total so far: {CurrentMergedResourcesCount} of {MaxMergedBundleSize}",
                     objectUrl,
-                    resourceCountInFile
+                    resourceCountInFile,
+                    currentMergedResources.Count,
+                    MaxMergedBundleSize
                 );
 
                 if (
