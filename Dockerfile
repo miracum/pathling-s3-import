@@ -8,7 +8,7 @@ COPY src/PathlingS3Import/packages.lock.json .
 RUN dotnet restore --locked-mode
 COPY . .
 
-ARG VERSION=2.0.3
+ARG VERSION=2.1.0
 RUN dotnet publish \
     -c Release \
     -p:Version=${VERSION} \
