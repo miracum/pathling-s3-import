@@ -8,6 +8,8 @@ using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging;
 using Minio;
 using Minio.DataModel.Args;
+using Prometheus.Client;
+using Prometheus.Client.Collectors;
 
 namespace PathlingS3Import;
 
@@ -17,6 +19,8 @@ namespace PathlingS3Import;
 )]
 public partial class MergeCommand : CommandBase
 {
+    private readonly IMetricFamily<ICounter, ValueTuple<string>> bundlesMergedCounter;
+
     private readonly ILogger<MergeCommand> log;
 
     private JsonSerializerOptions FhirJsonOptions { get; } =
@@ -39,6 +43,15 @@ public partial class MergeCommand : CommandBase
     public MergeCommand()
     {
         log = LogFactory.CreateLogger<MergeCommand>();
+
+        var collectorRegistry = new CollectorRegistry();
+        var metricFactory = new MetricFactory(collectorRegistry);
+
+        bundlesMergedCounter = metricFactory.CreateCounter(
+            "pathlings3import_bundles_merged_total",
+            "Total number of bundles merged to larger ones by resource type.",
+            "resourceType"
+        );
     }
 
     public async System.Threading.Tasks.Task RunAsync()
@@ -98,6 +111,7 @@ public partial class MergeCommand : CommandBase
 
         var currentMergedResources = new ConcurrentDictionary<string, string>();
         var estimatedSizeInBytes = 0;
+        var processedCount = 0;
         foreach (var item in objectsToProcess)
         {
             var objectUrl = $"s3://{S3BucketName}/{item.Key}";
@@ -163,6 +177,14 @@ public partial class MergeCommand : CommandBase
                     currentMergedResources.Clear();
                     estimatedSizeInBytes = 0;
                 }
+
+                processedCount++;
+                bundlesMergedCounter.WithLabels(ResourceType.ToString()).Inc();
+                log.LogInformation(
+                    "Merged {ProcessedCount} of {ObjectsToProcess} ",
+                    processedCount,
+                    objectsToProcess.Count
+                );
             }
         }
 
