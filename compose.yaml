@@ -1,6 +1,6 @@
 services:
   minio:
-    image: docker.io/bitnami/minio:2024.5.27-debian-12-r0@sha256:9ec540a7812dc932f25dc421dbf4589086e9a78b3c654e3b850e0439d8bca234
+    image: docker.io/bitnami/minio:2024.6.11-debian-12-r0@sha256:9a0e1801fabc489fbc3a9581641fb81a1fbe5295f24ee2a49897db53743859ac
     environment:
       MINIO_ROOT_USER: "admin"
       # kics-scan ignore-line
@@ -27,7 +27,7 @@ services:
         condition: service_started
 
   minio-client:
-    image: docker.io/bitnami/minio-client:2024.5.24-debian-12-r0@sha256:f6673f85a1180f009444e4f933e83998fb48b5aba3b6f3313aaa092f1d66bef5
+    image: docker.io/bitnami/minio-client:2024.6.10-debian-12-r0@sha256:2955ab38cc14672e80e8e11ab1c7bb27c4a41229f18bda15b41503c1d8d9fe32
     environment:
       MINIO_SERVER_ACCESS_KEY: admin
       # kics-scan ignore-line
@@ -102,6 +102,6 @@ services:
         condition: service_started
 
   pushgateway:
-    image: docker.io/prom/pushgateway:v1.8.0@sha256:c159e946abf44e0cf4ae53aa03d99326497a35acca526739c7f8b01a0183bb50
+    image: docker.io/prom/pushgateway:v1.9.0@sha256:98a458415f8f5afcfd45622d289a0aa67063563bec0f90d598ebc76783571936
     ports:
       - "127.0.0.1:9091:9091"
