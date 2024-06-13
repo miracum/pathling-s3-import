@@ -13,7 +13,7 @@ permissions: read-all
 
 jobs:
   build:
-    uses: miracum/.github/.github/workflows/standard-build.yaml@6687811887c6afb0cbbc3ee61eb5ae2f1365a06a # v1.9.0
+    uses: miracum/.github/.github/workflows/standard-build.yaml@5eab4c7bf6a5b1475f0c8b4d1e38e379a48f7a0a # v1.9.2
     permissions:
       contents: read
       id-token: write
@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
       - name: Download container image
         if: ${{ github.event_name == 'pull_request' }}
@@ -70,7 +70,7 @@ jobs:
           docker compose down --volumes --remove-orphans
 
   lint:
-    uses: miracum/.github/.github/workflows/standard-lint.yaml@6687811887c6afb0cbbc3ee61eb5ae2f1365a06a # v1.9.0
+    uses: miracum/.github/.github/workflows/standard-lint.yaml@5eab4c7bf6a5b1475f0c8b4d1e38e379a48f7a0a # v1.9.2
     permissions:
       contents: read
       pull-requests: write
@@ -86,7 +86,7 @@ jobs:
       github-token: ${{ secrets.GITHUB_TOKEN }}
 
   release:
-    uses: miracum/.github/.github/workflows/standard-release.yaml@6687811887c6afb0cbbc3ee61eb5ae2f1365a06a # v1.9.0
+    uses: miracum/.github/.github/workflows/standard-release.yaml@5eab4c7bf6a5b1475f0c8b4d1e38e379a48f7a0a # v1.9.2
     needs:
       - build
     permissions:
