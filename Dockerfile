@@ -1,21 +1,21 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0.300-jammy@sha256:3208c409ba7a2a259920cd487da7bef70b0645dc04c35db70473839f3ac0865f AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0.302-noble@sha256:fa69db4553830bd5c28d701867796bf5939988c74d70284774c628a8a4361442 AS build
 WORKDIR /build
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1
 
 COPY src/PathlingS3Import/PathlingS3Import.csproj .
 COPY src/PathlingS3Import/packages.lock.json .
 
-RUN dotnet restore --locked-mode
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages dotnet restore --locked-mode
 COPY . .
 
 ARG VERSION=2.1.0
-RUN dotnet publish \
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages dotnet publish \
     -c Release \
     -p:Version=${VERSION} \
     -o /build/publish \
     src/PathlingS3Import/PathlingS3Import.csproj
 
-FROM mcr.microsoft.com/dotnet/runtime:8.0.5-jammy-chiseled@sha256:e30948c62bb2918891e4e533cadc6b56ae8a50afa504751e6f353b8f0295c5d0
+FROM mcr.microsoft.com/dotnet/runtime:8.0.6-noble-chiseled@sha256:8d126a7369c5a48e920023c5abe94e80605c2961188caf42e75e5fe3adf18b72
 WORKDIR /opt/pathling-s3-import
 USER 65534:65534
 ENV DOTNET_ENVIRONMENT="Production" \
