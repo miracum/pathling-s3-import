@@ -13,7 +13,7 @@ permissions: read-all
 
 jobs:
   build:
-    uses: miracum/.github/.github/workflows/standard-build.yaml@5eab4c7bf6a5b1475f0c8b4d1e38e379a48f7a0a # v1.9.2
+    uses: miracum/.github/.github/workflows/standard-build.yaml@db8574b42e0c528f9cddc1ce84a40a837283cee0 # v1.10.2
     permissions:
       contents: read
       id-token: write
@@ -70,7 +70,7 @@ jobs:
           docker compose down --volumes --remove-orphans
 
   lint:
-    uses: miracum/.github/.github/workflows/standard-lint.yaml@5eab4c7bf6a5b1475f0c8b4d1e38e379a48f7a0a # v1.9.2
+    uses: miracum/.github/.github/workflows/standard-lint.yaml@db8574b42e0c528f9cddc1ce84a40a837283cee0 # v1.10.2
     permissions:
       contents: read
       pull-requests: write
@@ -86,7 +86,7 @@ jobs:
       github-token: ${{ secrets.GITHUB_TOKEN }}
 
   release:
-    uses: miracum/.github/.github/workflows/standard-release.yaml@5eab4c7bf6a5b1475f0c8b4d1e38e379a48f7a0a # v1.9.2
+    uses: miracum/.github/.github/workflows/standard-release.yaml@db8574b42e0c528f9cddc1ce84a40a837283cee0 # v1.10.2
     needs:
       - build
     permissions:
