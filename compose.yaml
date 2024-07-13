@@ -7,7 +7,6 @@ services:
       MINIO_ROOT_PASSWORD: "miniopass" # gitleaks:allow
       MINIO_DEFAULT_BUCKETS: "fhir"
     ports:
-      - "9000:9000"
       - "127.0.0.1:9001:9001"
 
   wait-for-minio:
@@ -80,7 +79,7 @@ services:
       spark.executor.memory: 4g
       spark.driver.memory: 4g
     ports:
-      - "8082:8080"
+      - "127.0.0.1:8082:8080"
     depends_on:
       minio-client:
         condition: service_completed_successfully

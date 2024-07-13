@@ -174,15 +174,14 @@ public partial class ImportCommand : CommandBase
             .WithPrefix(prefix)
             .WithRecursive(false);
 
-        var allObjects =
-            await minio.ListObjectsAsync(listArgs).ToList()
+        var allObjects = minio.ListObjectsEnumAsync(listArgs)
             ?? throw new InvalidOperationException("observable for listing buckets is null");
 
-        log.LogInformation("Found a total of {ObjectCount} matching objects.", allObjects.Count);
+        log.LogInformation("Found a total of {ObjectCount} matching objects.", await allObjects.CountAsync());
 
         // sort the objects by the value of the timestamp in the object name
         // in ascending order.
-        var objectsToProcess = allObjects
+        var objectsToProcess = await allObjects
             // skip over the checkpoint file (or anything that isn't ndjson)
             .Where(o => o.Key.EndsWith(".ndjson"))
             .OrderBy(o =>
@@ -197,7 +196,7 @@ public partial class ImportCommand : CommandBase
                     $"allObjects contains an item whose key doesn't match the regex: {o.Key}"
                 );
             })
-            .ToList();
+            .ToListAsync();
 
         var index = 0;
         foreach (var o in objectsToProcess)
