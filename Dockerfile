@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0.302-noble@sha256:bd836d1c4a19860ee61d1202b82561f0c750edb7a635443cb001042b71d79569 AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0.303-noble@sha256:487fcee12549e1f56567d238ed4198f2e9ef7de076d399980eae8dcdf84efe82 AS build
 WORKDIR /build
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1
 
