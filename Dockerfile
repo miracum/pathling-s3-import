@@ -15,7 +15,7 @@ RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages dotnet publish \
     -o /build/publish \
     src/PathlingS3Import/PathlingS3Import.csproj
 
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/runtime:8.0.6-noble-chiseled@sha256:3eb3f500b4dc2efc6a622d95f2360f44e6fe5b59a50c4153fae3aae7ca33e5bf
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/runtime:8.0.7-noble-chiseled@sha256:89d22da5947c002489990e99362cce58c13d0b05cdf709f9ad34dbb330a59cdf
 WORKDIR /opt/pathling-s3-import
 USER 65534:65534
 ENV DOTNET_ENVIRONMENT="Production" \
