@@ -1,1 +1,4 @@
-{"CreatedAt":"2024-05-27T20:29:16.4983552+00:00","LastImportedObjectUrl":"s3://fhir/staging-with-checkpoint/Patient/bundle-1708690114016.ndjson"}
+{
+  "CreatedAt": "2024-05-27T20:29:16.4983552+00:00",
+  "LastImportedObjectUrl": "s3://fhir/staging-with-checkpoint/Patient/bundle-1708690114016.ndjson"
+}

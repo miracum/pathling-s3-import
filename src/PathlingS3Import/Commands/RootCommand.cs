@@ -10,8 +10,5 @@ public partial class RootCommand : CommandBase
 {
     public RootCommand() { }
 
-    public void Run(CliContext context)
-    {
-        context.ShowValues();
-    }
+    public void Run(CliContext context) => context.ShowValues();
 }

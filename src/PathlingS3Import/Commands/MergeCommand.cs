@@ -7,6 +7,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging;
 using Minio;
+using Minio.ApiEndpoints;
 using Minio.DataModel.Args;
 using Prometheus.Client;
 using Prometheus.Client.Collectors;
@@ -84,15 +85,15 @@ public partial class MergeCommand : CommandBase
             .WithRecursive(false);
 
         var allObjects =
-            await minio.ListObjectsAsync(listArgs).ToList()
+            minio.ListObjectsEnumAsync(listArgs)
             ?? throw new InvalidOperationException("observable for listing buckets is null");
 
         log.LogInformation(
             "Found a total of {ObjectCount} matching objects. Ordering by timestamp ascending",
-            allObjects.Count
+            await allObjects.CountAsync()
         );
 
-        var objectsToProcess = allObjects
+        var objectsToProcess = await allObjects
             // skip over the checkpoint file (or anything that isn't ndjson)
             .Where(o => o.Key.EndsWith(".ndjson"))
             .OrderBy(o =>
@@ -107,7 +108,7 @@ public partial class MergeCommand : CommandBase
                     $"allObjects contains an item whose key doesn't match the regex: {o.Key}"
                 );
             })
-            .ToList();
+            .ToListAsync();
 
         var currentMergedResources = new ConcurrentDictionary<string, string>();
         var estimatedSizeInBytes = 0;
@@ -188,7 +189,7 @@ public partial class MergeCommand : CommandBase
             }
         }
 
-        if (currentMergedResources.Count > 0)
+        if (!currentMergedResources.IsEmpty)
         {
             log.LogInformation(
                 "Resources remaining: {Count}. Uploading as smaller bundle.",
