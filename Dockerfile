@@ -8,7 +8,7 @@ COPY src/PathlingS3Import/packages.lock.json .
 RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages dotnet restore --locked-mode
 COPY . .
 
-ARG VERSION=2.1.0
+ARG VERSION=2.1.1
 RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages dotnet publish \
     -c Release \
     -p:Version=${VERSION} \
