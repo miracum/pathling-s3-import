@@ -174,10 +174,14 @@ public partial class ImportCommand : CommandBase
             .WithPrefix(prefix)
             .WithRecursive(false);
 
-        var allObjects = minio.ListObjectsEnumAsync(listArgs)
+        var allObjects =
+            minio.ListObjectsEnumAsync(listArgs)
             ?? throw new InvalidOperationException("observable for listing buckets is null");
 
-        log.LogInformation("Found a total of {ObjectCount} matching objects.", await allObjects.CountAsync());
+        log.LogInformation(
+            "Found a total of {ObjectCount} matching objects.",
+            await allObjects.CountAsync()
+        );
 
         // sort the objects by the value of the timestamp in the object name
         // in ascending order.

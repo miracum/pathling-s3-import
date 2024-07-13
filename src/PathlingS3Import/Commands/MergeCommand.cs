@@ -189,7 +189,7 @@ public partial class MergeCommand : CommandBase
             }
         }
 
-        if (currentMergedResources.Count > 0)
+        if (!currentMergedResources.IsEmpty)
         {
             log.LogInformation(
                 "Resources remaining: {Count}. Uploading as smaller bundle.",
