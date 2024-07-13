@@ -10,7 +10,7 @@ Tool for automatically [$import'ing](https://pathling.csiro.au/docs/server/opera
 See the help text of the command by simply running:
 
 ```sh
-docker run --rm -it ghcr.io/miracum/pathling-s3-import:v2.1.1
+docker run --rm -it ghcr.io/miracum/pathling-s3-import:v2.1.2
 ```
 
 ## Development
