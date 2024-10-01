@@ -33,7 +33,7 @@ jobs:
   test:
     needs:
       - build
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       # <https://docs.docker.com/storage/containerd/>
       # via <https://github.com/docker/setup-buildx-action/issues/257>
