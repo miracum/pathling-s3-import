@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0.401-noble@sha256:d37cbb248b78027e3f149ea422bc9dc3bbf5b8c47bd1150e14c9849462235e91 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0.403-noble@sha256:363fb696f1d3b48c2342e08aca3e6286c55b844dbd6865ccf79f54b588076737 AS build
 WORKDIR /build
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1
 
@@ -15,7 +15,7 @@ RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages dotnet publish \
     -o /build/publish \
     src/PathlingS3Import/PathlingS3Import.csproj
 
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/runtime:8.0.8-noble-chiseled@sha256:3eb76a4d7dac9d70b181062f5b7c107761b900d2cbf56c88ca04aee86aad4d20
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/runtime:8.0.10-noble-chiseled@sha256:90d9976fab6cb55a44516c695ab34dbca3cf1de0011ac971301fd5e90b016fa1
 WORKDIR /opt/pathling-s3-import
 USER 65534:65534
 ENV DOTNET_ENVIRONMENT="Production" \
