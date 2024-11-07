@@ -7,7 +7,6 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging;
 using Minio;
-using Minio.ApiEndpoints;
 using Minio.DataModel.Args;
 using Prometheus.Client;
 using Prometheus.Client.Collectors;
@@ -40,6 +39,12 @@ public partial class MergeCommand : CommandBase
 
     [CliOption(Description = "The maximum size of the merged bundle in bytes. Default: 1 GiB")]
     public int MaxMergedBundleSizeInBytes { get; set; } = 1 * 1024 * 1024 * 1024;
+
+    [CliOption(
+        Description = "Name of the merge checkpoint file",
+        Name = "--merge-checkpoint-file-name"
+    )]
+    public string CheckpointFileName { get; set; } = "_last-merge-checkpoint.json";
 
     public MergeCommand()
     {
@@ -110,12 +115,86 @@ public partial class MergeCommand : CommandBase
             })
             .ToListAsync();
 
+        var checkpointObjectName = $"{prefix}{CheckpointFileName}";
+
+        log.LogInformation(
+            "Name of the current progress checkpoint object set to {CheckpointObjectName}.",
+            checkpointObjectName
+        );
+
+        if (IsContinueFromLastCheckpointEnabled)
+        {
+            log.LogInformation(
+                "Reading last checkpoint file from {CheckpointObjectName}",
+                checkpointObjectName
+            );
+
+            var lastProcessedFile = string.Empty;
+            // read the contents of the last checkpoint file
+            var getArgs = new GetObjectArgs()
+                .WithBucket(S3BucketName)
+                .WithObject(checkpointObjectName)
+                .WithCallbackStream(
+                    async (stream, ct) =>
+                    {
+                        using var reader = new StreamReader(stream, Encoding.UTF8);
+
+                        var checkpointJson = await reader.ReadToEndAsync(ct);
+                        var checkpoint = JsonSerializer.Deserialize<ProgressCheckpoint>(
+                            checkpointJson
+                        );
+
+                        log.LogInformation("Last checkpoint: {CheckpointJson}", checkpointJson);
+
+                        if (checkpoint is not null)
+                        {
+                            lastProcessedFile = checkpoint.LastProcessedObjectUrl;
+                        }
+                        else
+                        {
+                            log.LogError(
+                                "Failed to read checkpoint file: deserialized object is null"
+                            );
+                        }
+
+                        await stream.DisposeAsync();
+                    }
+                );
+            await minio.GetObjectAsync(getArgs);
+
+            if (string.IsNullOrEmpty(lastProcessedFile))
+            {
+                throw new InvalidDataException(
+                    "Failed to read last processed file. Contents are null or empty."
+                );
+            }
+
+            log.LogInformation("Continuing after {LastProcessedFile}", lastProcessedFile);
+
+            objectsToProcess = objectsToProcess
+                .SkipWhile(item => $"s3://{S3BucketName}/{item.Key}" != lastProcessedFile)
+                // SkipWhile stops if we reach the lastProcessedFile, but includes the entry itself in the
+                // result, so we need to skip that as well.
+                // Ideally, we'd say `SkipWhile(item.key-timestamp <= lastProcessedFile-timestamp)`.
+                .Skip(1)
+                .ToList();
+
+            log.LogInformation("Listing actual objects to process");
+        }
+
+        var objectsToProcessCount = objectsToProcess.Count;
+        log.LogInformation("Actually processing {ObjectsToProcessCount}", objectsToProcessCount);
+
         var currentMergedResources = new ConcurrentDictionary<string, string>();
         var estimatedSizeInBytes = 0;
         var processedCount = 0;
+        string lastProcessedObjectUrl = string.Empty;
+
         foreach (var item in objectsToProcess)
         {
             var objectUrl = $"s3://{S3BucketName}/{item.Key}";
+
+            lastProcessedObjectUrl = objectUrl;
 
             using (log.BeginScope("[Merging ndjson file {NdjsonObjectUrl}]", objectUrl))
             {
@@ -177,6 +256,7 @@ public partial class MergeCommand : CommandBase
                     await PutMergedBundleAsync(minio, currentMergedResources);
                     currentMergedResources.Clear();
                     estimatedSizeInBytes = 0;
+                    await CheckpointProgressAsync(minio, checkpointObjectName, objectUrl);
                 }
 
                 processedCount++;
@@ -199,6 +279,7 @@ public partial class MergeCommand : CommandBase
             await PutMergedBundleAsync(minio, currentMergedResources);
             currentMergedResources.Clear();
             estimatedSizeInBytes = 0;
+            await CheckpointProgressAsync(minio, checkpointObjectName, lastProcessedObjectUrl);
         }
     }
 
@@ -249,6 +330,48 @@ public partial class MergeCommand : CommandBase
             log.LogInformation(
                 "Running in dry-run mode. Not putting the merged bundle back in storage."
             );
+        }
+    }
+
+    private async System.Threading.Tasks.Task CheckpointProgressAsync(
+        IMinioClient minio,
+        string checkpointObjectName,
+        string lastProcessedObjectUrl
+    )
+    {
+        log.LogInformation(
+            "Checkpointing progress '{ObjectUrl}' as '{S3BucketName}/{CheckpointObjectName}'",
+            lastProcessedObjectUrl,
+            S3BucketName,
+            checkpointObjectName
+        );
+
+        var checkpoint = new ProgressCheckpoint()
+        {
+            LastProcessedObjectUrl = lastProcessedObjectUrl,
+        };
+        var jsonString = JsonSerializer.Serialize(checkpoint);
+        var bytes = Encoding.UTF8.GetBytes(jsonString);
+        using var memoryStream = new MemoryStream(bytes);
+
+        // persist progress
+        var putArgs = new PutObjectArgs()
+            .WithBucket(S3BucketName)
+            .WithObject(checkpointObjectName)
+            .WithContentType("application/json")
+            .WithStreamData(memoryStream)
+            .WithObjectSize(bytes.LongLength);
+
+        if (!IsDryRun)
+        {
+            await RetryPipeline.ExecuteAsync(async token =>
+            {
+                await minio.PutObjectAsync(putArgs, token);
+            });
+        }
+        else
+        {
+            log.LogInformation("Running in dry-run mode. Not updating the checkpoint file.");
         }
     }
 }
