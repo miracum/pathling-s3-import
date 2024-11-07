@@ -34,7 +34,7 @@ public class Tests(ITestOutputHelper output)
             "--s3-bucket-name=fhir",
             "--s3-object-name-prefix=staging/",
             $"--import-resource-type={resourceType}",
-            "--dry-run=false"
+            "--dry-run=false",
         ];
 
         var testImageTag =
@@ -55,12 +55,12 @@ public class Tests(ITestOutputHelper output)
 
         consumer.Stdout.Seek(0, SeekOrigin.Begin);
         using var stdoutReader = new StreamReader(consumer.Stdout);
-        var stdout = stdoutReader.ReadToEnd();
+        var stdout = await stdoutReader.ReadToEndAsync();
         output.WriteLine(stdout);
 
         consumer.Stderr.Seek(0, SeekOrigin.Begin);
         using var stderrReader = new StreamReader(consumer.Stderr);
-        var stderr = stderrReader.ReadToEnd();
+        var stderr = await stderrReader.ReadToEndAsync();
         output.WriteLine(stderr);
 
         exitCode.Should().Be(0);
@@ -72,7 +72,7 @@ public class Tests(ITestOutputHelper output)
             settings: new()
             {
                 PreferredFormat = ResourceFormat.Json,
-                Timeout = (int)TimeSpan.FromSeconds(60).TotalMilliseconds
+                Timeout = (int)TimeSpan.FromSeconds(60).TotalMilliseconds,
             }
         );
 

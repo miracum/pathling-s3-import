@@ -32,12 +32,6 @@ public partial class ImportCommand : CommandBase
     private readonly IMetricFamily<IHistogram, ValueTuple<string>> importDurationHistogram;
     private readonly IMetricFamily<ICounter, ValueTuple<string>> resourcesImportedCounter;
 
-    private class ImportCheckpoint
-    {
-        public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
-        public string? LastImportedObjectUrl { get; set; }
-    }
-
     public ImportCommand()
     {
         log = LogFactory.CreateLogger<ImportCommand>();
@@ -71,17 +65,14 @@ public partial class ImportCommand : CommandBase
     [CliOption(Description = "The type of FHIR resource to import")]
     public ResourceType ImportResourceType { get; set; } = ResourceType.Patient;
 
-    [CliOption(
-        Description = "If enabled, continue processing resources from the last saved checkpoint file.",
-        Name = "--continue-from-last-checkpoint"
-    )]
-    public bool IsContinueFromLastCheckpointEnabled { get; set; } = false;
-
-    [CliOption(Description = "Name of the checkpoint file", Name = "--checkpoint-file-name")]
-    public string CheckpointFileName { get; set; } = "_last-import-checkpoint.json";
-
     [CliOption(Description = "Delay to wait after importing a bundle")]
     public TimeSpan SleepAfterImport { get; set; } = TimeSpan.FromSeconds(10);
+
+    [CliOption(
+        Description = "Name of the import checkpoint file",
+        Name = "--import-checkpoint-file-name"
+    )]
+    public string CheckpointFileName { get; set; } = "_last-import-checkpoint.json";
 
     public async Task RunAsync()
     {
@@ -123,7 +114,7 @@ public partial class ImportCommand : CommandBase
             {
                 options.AdditionalHeaders = new Dictionary<string, string>
                 {
-                    { "Authorization", PushGatewayAuthHeader }
+                    { "Authorization", PushGatewayAuthHeader },
                 };
             }
 
@@ -234,7 +225,7 @@ public partial class ImportCommand : CommandBase
                         using var reader = new StreamReader(stream, Encoding.UTF8);
 
                         var checkpointJson = await reader.ReadToEndAsync(ct);
-                        var checkpoint = JsonSerializer.Deserialize<ImportCheckpoint>(
+                        var checkpoint = JsonSerializer.Deserialize<ProgressCheckpoint>(
                             checkpointJson
                         );
 
@@ -242,7 +233,7 @@ public partial class ImportCommand : CommandBase
 
                         if (checkpoint is not null)
                         {
-                            lastProcessedFile = checkpoint.LastImportedObjectUrl;
+                            lastProcessedFile = checkpoint.LastProcessedObjectUrl;
                         }
                         else
                         {
@@ -265,8 +256,6 @@ public partial class ImportCommand : CommandBase
 
             log.LogInformation("Continuing after {LastProcessedFile}", lastProcessedFile);
 
-            // order again just so we have an IOrderedEnumerable in the end.
-            // not really necessary.
             objectsToProcess = objectsToProcess
                 .SkipWhile(item => $"s3://{S3BucketName}/{item.Key}" != lastProcessedFile)
                 // SkipWhile stops if we reach the lastProcessedFile, but includes the entry itself in the
@@ -330,19 +319,19 @@ public partial class ImportCommand : CommandBase
                         new Parameters.ParameterComponent()
                         {
                             Name = "resourceType",
-                            Value = new Code(ImportResourceType.ToString())
+                            Value = new Code(ImportResourceType.ToString()),
                         },
                         new Parameters.ParameterComponent()
                         {
                             Name = "mode",
-                            Value = new Code("merge")
+                            Value = new Code("merge"),
                         },
                         new Parameters.ParameterComponent()
                         {
                             Name = "url",
-                            Value = new FhirUrl(objectUrl)
-                        }
-                    ]
+                            Value = new FhirUrl(objectUrl),
+                        },
+                    ],
                 };
 
                 var importParameters = new Parameters();
@@ -350,7 +339,7 @@ public partial class ImportCommand : CommandBase
                 // we might want to add multiple ndjson files at once in batches.
                 importParameters.Parameter.Add(parameter);
 
-                log.LogInformation("{ImportParameters}", importParameters.ToJson());
+                log.LogInformation("{ImportParameters}", await importParameters.ToJsonAsync());
 
                 log.LogInformation(
                     "Starting {PathlingServerBaseUrl}/$import for {ObjectUrl}",
@@ -391,7 +380,10 @@ public partial class ImportCommand : CommandBase
                         checkpointObjectName
                     );
 
-                    var checkpoint = new ImportCheckpoint() { LastImportedObjectUrl = objectUrl, };
+                    var checkpoint = new ProgressCheckpoint()
+                    {
+                        LastProcessedObjectUrl = objectUrl,
+                    };
                     var jsonString = JsonSerializer.Serialize(checkpoint);
                     var bytes = Encoding.UTF8.GetBytes(jsonString);
                     using var memoryStream = new MemoryStream(bytes);

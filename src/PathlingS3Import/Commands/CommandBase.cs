@@ -75,6 +75,12 @@ public abstract partial class CommandBase
     )]
     public string? PushGatewayAuthHeader { get; set; }
 
+    [CliOption(
+        Description = "If enabled, continue processing resources from the last saved checkpoint file.",
+        Name = "--continue-from-last-checkpoint"
+    )]
+    public bool IsContinueFromLastCheckpointEnabled { get; set; } = false;
+
     public ILoggerFactory LogFactory { get; set; }
 
     public ResiliencePipeline RetryPipeline { get; set; }
@@ -110,7 +116,7 @@ public abstract partial class CommandBase
                 );
                 // Event handlers can be asynchronous; here, we return an empty ValueTask.
                 return default;
-            }
+            },
         };
 
         RetryPipeline = new ResiliencePipelineBuilder()
