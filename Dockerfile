@@ -4,6 +4,7 @@ ENV DOTNET_CLI_TELEMETRY_OPTOUT=1
 
 COPY src/PathlingS3Import/PathlingS3Import.csproj .
 COPY src/PathlingS3Import/packages.lock.json .
+COPY src/Directory.Build.props .
 
 RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages dotnet restore --locked-mode
 COPY . .
