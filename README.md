@@ -42,7 +42,8 @@ dotnet run --project src/PathlingS3Import/ -- import \
     --s3-object-name-prefix=staging/ \
     --enable-metrics=true \
     --pushgateway-endpoint=http://localhost:9091/ \
-    --dry-run=false
+    --dry-run=true \
+    --enable-merging=true
 ```
 
 Or to test importing from a checkpoint:
@@ -57,19 +58,6 @@ dotnet run --project src/PathlingS3Import/ -- import \
     --s3-object-name-prefix=staging-with-checkpoint/ \
     --continue-from-last-checkpoint=true \
     --dry-run=false
-```
-
-### merge
-
-```sh
-dotnet run --project src/PathlingS3Import/ -- merge \
-    --s3-endpoint=http://localhost:9000 \
-    --s3-access-key=admin \
-    --s3-secret-key=miniopass \
-    --s3-bucket-name=fhir \
-    --s3-object-name-prefix=staging/ \
-    --max-merged-bundle-size=10 \
-    --dry-run=true
 ```
 
 ### Run E2E Tests
