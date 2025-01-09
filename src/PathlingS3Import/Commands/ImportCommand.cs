@@ -187,31 +187,12 @@ public partial class ImportCommand : CommandBase
             await allObjects.CountAsync()
         );
 
-        // sort the objects by the value of the timestamp in the object name
-        // in ascending order.
+        // sort the objects by their name in ascending order
         var objectsToProcess = await allObjects
             // skip over the checkpoint file (or anything that isn't ndjson)
             .Where(o => o.Key.EndsWith(".ndjson"))
-            .OrderBy(o =>
-            {
-                var match = BundleObjectNameRegex().Match(o.Key);
-                if (match.Success)
-                {
-                    return Convert.ToDouble(match.Groups["timestamp"].Value);
-                }
-
-                throw new InvalidOperationException(
-                    $"allObjects contains an item whose key doesn't match the regex: {o.Key}"
-                );
-            })
+            .OrderBy(o => o.Key)
             .ToListAsync();
-
-        log.LogInformation("Listing all matching items in bucket");
-
-        foreach (var (index, item) in objectsToProcess.Select((value, index) => (index, value)))
-        {
-            log.LogInformation("{Index}. {Key}", index, item.Key);
-        }
 
         var checkpointObjectName = $"{prefix}{CheckpointFileName}";
 
@@ -222,18 +203,13 @@ public partial class ImportCommand : CommandBase
 
         if (IsContinueFromLastCheckpointEnabled)
         {
+            log.LogInformation("Checkpointing enabled. Continuing from last checkpoint.");
+
             objectsToProcess = await GetItemsToProcessAfterCheckpointAsync(
                 minio,
                 objectsToProcess,
                 checkpointObjectName
             );
-
-            log.LogInformation("Listing actual objects to process after checkpoint");
-
-            foreach (var (index, item) in objectsToProcess.Select((value, index) => (index, value)))
-            {
-                log.LogInformation("{Index}. {Key}", index, item.Key);
-            }
         }
 
         var objectsToProcessCount = objectsToProcess.Count;
