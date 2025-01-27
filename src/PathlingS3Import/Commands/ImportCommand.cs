@@ -335,7 +335,7 @@ public partial class ImportCommand : CommandBase
 
             stopwatch.Stop();
 
-            importedCount += IsMergingEnabled ? mergedItemsCount : 1;
+            importedCount = IsMergingEnabled ? mergedItemsCount : importedCount + 1;
             log.LogInformation(
                 "Imported {ImportedCount} / {ObjectsToProcessCount}",
                 importedCount,
