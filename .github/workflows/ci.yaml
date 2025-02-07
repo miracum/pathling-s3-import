@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   build:
-    uses: miracum/.github/.github/workflows/standard-build.yaml@3a6d6e823363d6a7b39daaadc24566130bddef38 # v1.12.10
+    uses: miracum/.github/.github/workflows/standard-build.yaml@4cc91eaee2ea6c0513da1195a6b53bb9c16f5666 # v1.13.1
     permissions:
       contents: write
       id-token: write
@@ -77,7 +77,7 @@ jobs:
           docker compose up wait-for-pathling
 
       - name: Install .NET
-        uses: actions/setup-dotnet@3e891b0cb619bf60e2c25674b222b8940e2c1c25 # v4.1.0
+        uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab # v4.3.0
         with:
           dotnet-version: "9.0.x"
 
@@ -93,7 +93,7 @@ jobs:
           docker compose down --volumes --remove-orphans
 
   lint:
-    uses: miracum/.github/.github/workflows/standard-lint.yaml@3a6d6e823363d6a7b39daaadc24566130bddef38 # v1.12.10
+    uses: miracum/.github/.github/workflows/standard-lint.yaml@4cc91eaee2ea6c0513da1195a6b53bb9c16f5666 # v1.13.1
     permissions:
       contents: read
       pull-requests: write
@@ -109,7 +109,7 @@ jobs:
       github-token: ${{ secrets.GITHUB_TOKEN }}
 
   release:
-    uses: miracum/.github/.github/workflows/standard-release.yaml@3a6d6e823363d6a7b39daaadc24566130bddef38 # v1.12.10
+    uses: miracum/.github/.github/workflows/standard-release.yaml@4cc91eaee2ea6c0513da1195a6b53bb9c16f5666 # v1.13.1
     needs:
       - build
     permissions:
