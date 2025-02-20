@@ -9,7 +9,7 @@ COPY src/Directory.Build.props .
 RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages dotnet restore --locked-mode
 COPY . .
 
-ARG VERSION=3.0.0
+ARG VERSION=3.0.1
 RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages dotnet publish \
     -c Release \
     -p:Version=${VERSION} \
