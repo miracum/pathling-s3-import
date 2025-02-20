@@ -13,7 +13,7 @@ services:
       - "127.0.0.1:9001:9001"
 
   wait-for-minio:
-    image: docker.io/curlimages/curl:8.11.0@sha256:83a505ba2ba62f208ed6e410c268b7b9aa48f0f7b403c8108b9773b44199dbba
+    image: docker.io/curlimages/curl:8.12.1@sha256:94e9e444bcba979c2ea12e27ae39bee4cd10bc7041a472c4727a558e213744e6
     restart: "no"
     environment:
       MINIO_ENDPOINT_URL: http://minio:9000
@@ -48,7 +48,7 @@ services:
       - $PWD/hack/data/:/tmp/data/:ro
 
   pathling:
-    image: docker.io/aehrc/pathling:7.0.1@sha256:70177a4eb7a20a5edba7a4957ac6cd245c29e3c306e98c5de59fe2974c1f71b8
+    image: docker.io/aehrc/pathling:7.1.0@sha256:ecd8df8d4a4971fe655725824ed4aa0c00ca206402511ca7e0a7ff9064a030cf
     ipc: none
     security_opt:
       - "no-new-privileges:true"
@@ -88,7 +88,7 @@ services:
         condition: service_completed_successfully
 
   wait-for-pathling:
-    image: docker.io/curlimages/curl:8.11.0@sha256:83a505ba2ba62f208ed6e410c268b7b9aa48f0f7b403c8108b9773b44199dbba
+    image: docker.io/curlimages/curl:8.12.1@sha256:94e9e444bcba979c2ea12e27ae39bee4cd10bc7041a472c4727a558e213744e6
     restart: "no"
     environment:
       PATHLING_URL: http://pathling:8080
@@ -104,6 +104,6 @@ services:
         condition: service_started
 
   pushgateway:
-    image: docker.io/prom/pushgateway:v1.10.0@sha256:7a4d0696a24ef4e8bad62bee5656855a0aff2f26416d8cb32009dc28d6263604
+    image: docker.io/prom/pushgateway:v1.11.0@sha256:99392035ae99754b40e579088710df184b6a730b77670148f44102ba9ee01d2f
     ports:
       - "127.0.0.1:9091:9091"
