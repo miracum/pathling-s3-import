@@ -5,13 +5,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="DotMake.CommandLine" Version="1.8.8" />
-    <PackageReference Include="Hl7.Fhir.R4" Version="5.11.0" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.0" />
-    <PackageReference Include="Minio" Version="6.0.3" />
-    <PackageReference Include="Polly.Core" Version="8.5.0" />
-    <PackageReference Include="Prometheus.Client.MetricPusher" Version="3.1.0" />
+    <PackageReference Include="DotMake.CommandLine" Version="1.9.0" />
+    <PackageReference Include="Hl7.Fhir.R4" Version="5.11.4" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.2" />
+    <PackageReference Include="Minio" Version="6.0.4" />
+    <PackageReference Include="Polly.Core" Version="8.5.2" />
+    <PackageReference Include="Prometheus.Client.MetricPusher" Version="3.2.0" />
     <PackageReference Include="System.Linq.Async" Version="6.0.1" />
   </ItemGroup>
 
