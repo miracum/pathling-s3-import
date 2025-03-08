@@ -7,7 +7,8 @@ public class Tests()
     [Fact]
     public void Sort_ShouldSortObjectsInExpectedOrder()
     {
-        var objects = @"
+        var objects =
+            @"
         1736445718918-0-0.ndjson
         1736445723943-0-2.ndjson
         1736445728954-0-4.ndjson
@@ -34,7 +35,8 @@ public class Tests()
         1736445738973-0-9.ndjson
         1736445746202-0-11.ndjson";
 
-        var expected = @"
+        var expected =
+            @"
         1736445718918-0-0.ndjson
         1736445718918-0-1.ndjson
         1736445718918-1-0.ndjson

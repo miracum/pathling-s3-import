@@ -1,5 +1,4 @@
 using System.Reflection;
-using System.Text.RegularExpressions;
 using DotMake.CommandLine;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
