@@ -1,6 +1,6 @@
 services:
   minio:
-    image: docker.io/bitnami/minio:2025.2.18-debian-12-r1@sha256:4583cbbf39a0b8cb1f8deddf4e033889299b8b3bc03155fcb1865b22a11e6344
+    image: docker.io/bitnami/minio:2025.2.28-debian-12-r1@sha256:5175879456f619cf228e62066415e13be0540118d7de5ee6f6d477cca8743d25
     environment:
       MINIO_ROOT_USER: "admin"
       # kics-scan ignore-line
@@ -29,7 +29,7 @@ services:
         condition: service_started
 
   minio-client:
-    image: docker.io/bitnami/minio-client:2025.2.15-debian-12-r1@sha256:6f77fc4c4c763eb976e149a7ffcfb362abe44e0164f3709b6dd7c0c459fe1d70
+    image: docker.io/bitnami/minio-client:2025.2.21-debian-12-r1@sha256:772874d3198544d8938f18f7c8d191145ed0fe10a10d0c54bd9de0d6329c8158
     environment:
       MINIO_SERVER_ACCESS_KEY: admin
       # kics-scan ignore-line
@@ -48,7 +48,7 @@ services:
       - $PWD/hack/data/:/tmp/data/:ro
 
   pathling:
-    image: docker.io/aehrc/pathling:7.1.0@sha256:ecd8df8d4a4971fe655725824ed4aa0c00ca206402511ca7e0a7ff9064a030cf
+    image: docker.io/aehrc/pathling:7.2.0@sha256:31b5ef50294e55136ae2278c2d0b8435a96a15b5da040ec785effb51875d08d3
     ipc: none
     security_opt:
       - "no-new-privileges:true"
