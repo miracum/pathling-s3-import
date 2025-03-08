@@ -1,5 +1,4 @@
 using System.Reflection;
-using System.Text.RegularExpressions;
 using DotMake.CommandLine;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
@@ -10,9 +9,6 @@ namespace PathlingS3Import;
 
 public abstract partial class CommandBase
 {
-    [GeneratedRegex(".*bundle-(?<timestamp>\\d*)\\.ndjson$")]
-    protected static partial Regex BundleObjectNameRegex();
-
     [CliOption(Description = "The S3 endpoint URI", Name = "--s3-endpoint")]
     public Uri? S3Endpoint { get; set; }
 

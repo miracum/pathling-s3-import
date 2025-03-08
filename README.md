@@ -43,7 +43,8 @@ dotnet run --project src/PathlingS3Import/ -- import \
     --enable-metrics=true \
     --pushgateway-endpoint=http://localhost:9091/ \
     --dry-run=true \
-    --enable-merging=true
+    --enable-merging=true \
+    --delete-after-merging=false
 ```
 
 Or to test importing from a checkpoint:

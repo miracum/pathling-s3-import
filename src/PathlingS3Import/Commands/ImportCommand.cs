@@ -1,10 +1,8 @@
-using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Reactive.Linq;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using DotMake.CommandLine;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
@@ -87,6 +85,9 @@ public partial class ImportCommand : CommandBase
         Name = "--enable-merging"
     )]
     public bool IsMergingEnabled { get; set; } = false;
+
+    [CliOption(Description = "Delete source files after merging.", Name = "--delete-after-merging")]
+    public bool IsDeleteAfterMergingEnabled { get; set; } = false;
 
     private JsonSerializerOptions FhirJsonOptions { get; } =
         new JsonSerializerOptions().ForFhir(ModelInfo.ModelInspector);
@@ -187,31 +188,12 @@ public partial class ImportCommand : CommandBase
             await allObjects.CountAsync()
         );
 
-        // sort the objects by the value of the timestamp in the object name
-        // in ascending order.
+        // sort the objects by their name in ascending order
         var objectsToProcess = await allObjects
             // skip over the checkpoint file (or anything that isn't ndjson)
             .Where(o => o.Key.EndsWith(".ndjson"))
-            .OrderBy(o =>
-            {
-                var match = BundleObjectNameRegex().Match(o.Key);
-                if (match.Success)
-                {
-                    return Convert.ToDouble(match.Groups["timestamp"].Value);
-                }
-
-                throw new InvalidOperationException(
-                    $"allObjects contains an item whose key doesn't match the regex: {o.Key}"
-                );
-            })
+            .OrderBy(o => o.Key)
             .ToListAsync();
-
-        log.LogInformation("Listing all matching items in bucket");
-
-        foreach (var (index, item) in objectsToProcess.Select((value, index) => (index, value)))
-        {
-            log.LogInformation("{Index}. {Key}", index, item.Key);
-        }
 
         var checkpointObjectName = $"{prefix}{CheckpointFileName}";
 
@@ -222,18 +204,13 @@ public partial class ImportCommand : CommandBase
 
         if (IsContinueFromLastCheckpointEnabled)
         {
+            log.LogInformation("Checkpointing enabled. Continuing from last checkpoint.");
+
             objectsToProcess = await GetItemsToProcessAfterCheckpointAsync(
                 minio,
                 objectsToProcess,
                 checkpointObjectName
             );
-
-            log.LogInformation("Listing actual objects to process after checkpoint");
-
-            foreach (var (index, item) in objectsToProcess.Select((value, index) => (index, value)))
-            {
-                log.LogInformation("{Index}. {Key}", index, item.Key);
-            }
         }
 
         var objectsToProcessCount = objectsToProcess.Count;
@@ -243,6 +220,7 @@ public partial class ImportCommand : CommandBase
         var importedCount = 0;
 
         var currentMergedResources = new ConcurrentDictionary<string, string>();
+        var currentMergedObjectKeys = new ConcurrentBag<string>();
         var estimatedSizeInBytes = 0;
         var mergedItemsCount = 0;
         var lastMergedObjectUrl = string.Empty;
@@ -291,6 +269,8 @@ public partial class ImportCommand : CommandBase
                                 currentMergedResources[resource.Id] = line;
                                 estimatedSizeInBytes += Encoding.UTF8.GetByteCount(line);
                             }
+
+                            currentMergedObjectKeys.Add(item.Key);
                         }
                     );
                 await minio.GetObjectAsync(getArgs);
@@ -348,8 +328,62 @@ public partial class ImportCommand : CommandBase
             {
                 var objectUrlToImport = IsMergingEnabled ? lastMergedObjectUrl : objectUrl;
                 await ImportNdjsonFileAsync(fhirClient, objectUrlToImport, resourceCountInFile);
+
+                var lastProcessedFile = string.Empty;
+                try
+                {
+                    // get's the object name of the last processed file in the previous import
+                    lastProcessedFile = await GetLastProcessedFileFromCheckpointAsync(
+                        minio,
+                        checkpointObjectName
+                    );
+                }
+                catch (ObjectNotFoundException e)
+                {
+                    log.LogWarning(
+                        e,
+                        "Checkpoint object not found. Can be ignored if this is the first run or checkpointing is disabled."
+                    );
+                }
+
                 // always checkpoint progress against the object URL, i.e. not the merged one
                 await CheckpointProgressAsync(minio, checkpointObjectName, objectUrl);
+
+                // delete the source file after merging if enabled, as well as the previous checkpoint file
+                // the second part is necessary, because an import with an existing checkpoint starts processing
+                // files after the last processed file in the ckeckpoint.
+                if (IsDeleteAfterMergingEnabled)
+                {
+                    if (!string.IsNullOrEmpty(lastProcessedFile))
+                    {
+                        log.LogInformation(
+                            "Adding last processed file from previous checkpoint: {S3BucketName}/{LastProcessedFile} to objects to be deleted.",
+                            S3BucketName,
+                            lastProcessedFile
+                        );
+                        currentMergedObjectKeys.Add(lastProcessedFile);
+                    }
+
+                    // don't delete the last file the current checkpoint points to
+                    // bit of an ugly solution since objectUrl is an url whereas k is an object key in the bucket.
+                    var objectsToDelete = currentMergedObjectKeys
+                        .Where(k => !objectUrl.EndsWith(k))
+                        .ToList();
+
+                    log.LogInformation(
+                        "Removing merged source files ({Count}) from {S3BucketName} after merging.",
+                        currentMergedObjectKeys.Count,
+                        S3BucketName
+                    );
+
+                    var args = new RemoveObjectsArgs()
+                        .WithBucket(S3BucketName)
+                        .WithObjects(objectsToDelete);
+
+                    await minio.RemoveObjectsAsync(args);
+
+                    currentMergedObjectKeys.Clear();
+                }
             }
             else
             {
@@ -359,7 +393,7 @@ public partial class ImportCommand : CommandBase
 
             stopwatch.Stop();
 
-            importedCount += IsMergingEnabled ? mergedItemsCount : 1;
+            importedCount = IsMergingEnabled ? mergedItemsCount : importedCount + 1;
             log.LogInformation(
                 "Imported {ImportedCount} / {ObjectsToProcessCount}",
                 importedCount,
@@ -536,17 +570,11 @@ public partial class ImportCommand : CommandBase
         return importParameters;
     }
 
-    private async Task<List<Item>> GetItemsToProcessAfterCheckpointAsync(
+    private async Task<string> GetLastProcessedFileFromCheckpointAsync(
         IMinioClient minio,
-        List<Item> allItems,
         string checkpointObjectName
     )
     {
-        log.LogInformation(
-            "Reading last checkpoint file from {CheckpointObjectName}",
-            checkpointObjectName
-        );
-
         var lastProcessedFile = string.Empty;
         // read the contents of the last checkpoint file
         var getArgs = new GetObjectArgs()
@@ -574,9 +602,30 @@ public partial class ImportCommand : CommandBase
                     await stream.DisposeAsync();
                 }
             );
+
+        await minio.GetObjectAsync(getArgs);
+        return lastProcessedFile;
+    }
+
+    private async Task<List<Item>> GetItemsToProcessAfterCheckpointAsync(
+        IMinioClient minio,
+        List<Item> allItems,
+        string checkpointObjectName
+    )
+    {
+        log.LogInformation(
+            "Reading last checkpoint file from {CheckpointObjectName}",
+            checkpointObjectName
+        );
+
+        var lastProcessedFile = string.Empty;
+
         try
         {
-            await minio.GetObjectAsync(getArgs);
+            lastProcessedFile = await GetLastProcessedFileFromCheckpointAsync(
+                minio,
+                checkpointObjectName
+            );
         }
         catch (ObjectNotFoundException e)
         {
