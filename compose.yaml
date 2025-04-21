@@ -1,6 +1,6 @@
 services:
   minio:
-    image: docker.io/bitnami/minio:2025.2.28-debian-12-r1@sha256:5175879456f619cf228e62066415e13be0540118d7de5ee6f6d477cca8743d25
+    image: docker.io/bitnami/minio:2025.4.8-debian-12-r3@sha256:4ab67707a5b6a391d1b4d545d70877c002fb08724e80b21eb483986103b73602
     environment:
       MINIO_ROOT_USER: "admin"
       # kics-scan ignore-line
@@ -13,7 +13,7 @@ services:
       - "127.0.0.1:9001:9001"
 
   wait-for-minio:
-    image: docker.io/curlimages/curl:8.12.1@sha256:94e9e444bcba979c2ea12e27ae39bee4cd10bc7041a472c4727a558e213744e6
+    image: docker.io/curlimages/curl:8.13.0@sha256:d43bdb28bae0be0998f3be83199bfb2b81e0a30b034b6d7586ce7e05de34c3fd
     restart: "no"
     environment:
       MINIO_ENDPOINT_URL: http://minio:9000
@@ -29,7 +29,7 @@ services:
         condition: service_started
 
   minio-client:
-    image: docker.io/bitnami/minio-client:2025.2.21-debian-12-r1@sha256:772874d3198544d8938f18f7c8d191145ed0fe10a10d0c54bd9de0d6329c8158
+    image: docker.io/bitnami/minio-client:2025.4.8-debian-12-r2@sha256:579fd0e3451824569411c2bc4171c5e7e981ed23c3953988ee77aa82b8d1251f
     environment:
       MINIO_SERVER_ACCESS_KEY: admin
       # kics-scan ignore-line
@@ -88,7 +88,7 @@ services:
         condition: service_completed_successfully
 
   wait-for-pathling:
-    image: docker.io/curlimages/curl:8.12.1@sha256:94e9e444bcba979c2ea12e27ae39bee4cd10bc7041a472c4727a558e213744e6
+    image: docker.io/curlimages/curl:8.13.0@sha256:d43bdb28bae0be0998f3be83199bfb2b81e0a30b034b6d7586ce7e05de34c3fd
     restart: "no"
     environment:
       PATHLING_URL: http://pathling:8080
@@ -104,6 +104,6 @@ services:
         condition: service_started
 
   pushgateway:
-    image: docker.io/prom/pushgateway:v1.11.0@sha256:99392035ae99754b40e579088710df184b6a730b77670148f44102ba9ee01d2f
+    image: docker.io/prom/pushgateway:v1.11.1@sha256:03738d278e082ee9821df730c741b3b465c251fc2b68a85883def301a55a6215
     ports:
       - "127.0.0.1:9091:9091"
