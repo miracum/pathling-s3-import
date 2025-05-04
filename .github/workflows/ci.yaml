@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   build:
-    uses: miracum/.github/.github/workflows/standard-build.yaml@f4c8b63f01be62f28729c15d6ddffebeb0725fc8 # v1.16.9
+    uses: miracum/.github/.github/workflows/standard-build.yaml@4bc6073e261d8eecf88bf427ac06a4a2f0f46d2f # v1.16.12
     permissions:
       contents: write
       id-token: write
@@ -60,7 +60,7 @@ jobs:
 
       - name: Download container image
         if: ${{ github.event_name == 'pull_request' }}
-        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: ${{ needs.build.outputs.image-slug }}
           path: /tmp
@@ -93,7 +93,7 @@ jobs:
           docker compose down --volumes --remove-orphans
 
   lint:
-    uses: miracum/.github/.github/workflows/standard-lint.yaml@f4c8b63f01be62f28729c15d6ddffebeb0725fc8 # v1.16.9
+    uses: miracum/.github/.github/workflows/standard-lint.yaml@4bc6073e261d8eecf88bf427ac06a4a2f0f46d2f # v1.16.12
     permissions:
       contents: read
       pull-requests: write
@@ -109,7 +109,7 @@ jobs:
       github-token: ${{ secrets.GITHUB_TOKEN }}
 
   release:
-    uses: miracum/.github/.github/workflows/standard-release.yaml@f4c8b63f01be62f28729c15d6ddffebeb0725fc8 # v1.16.9
+    uses: miracum/.github/.github/workflows/standard-release.yaml@4bc6073e261d8eecf88bf427ac06a4a2f0f46d2f # v1.16.12
     needs:
       - build
     permissions:
