@@ -1,6 +1,6 @@
 services:
   minio:
-    image: docker.io/bitnami/minio:2025.4.8-debian-12-r3@sha256:4ab67707a5b6a391d1b4d545d70877c002fb08724e80b21eb483986103b73602
+    image: docker.io/bitnami/minio:2025.5.24-debian-12-r4@sha256:69703ab18751142bf5487dae90fc5654cc426263e258610b0512cee00030369e
     environment:
       MINIO_ROOT_USER: "admin"
       # kics-scan ignore-line
@@ -29,7 +29,7 @@ services:
         condition: service_started
 
   minio-client:
-    image: docker.io/bitnami/minio-client:2025.4.8-debian-12-r2@sha256:579fd0e3451824569411c2bc4171c5e7e981ed23c3953988ee77aa82b8d1251f
+    image: docker.io/bitnami/minio-client:2025.5.21-debian-12-r1@sha256:ea131735a1fa6b261bcd9b7245e6f0110b7e2fd8077e7c3f97abf7f55c4beedf
     environment:
       MINIO_SERVER_ACCESS_KEY: admin
       # kics-scan ignore-line
